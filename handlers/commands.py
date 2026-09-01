@@ -1,4 +1,4 @@
-"""Minecraft 适配器插件的命令处理器（MaiBot 版）。
+"""Minecraft 聊天适配器插件的命令处理器。
 
 从 AstrBot 版 handlers/commands.py 迁移：
 - 原 AstrMessageEvent 事件式接口 → 改为 CommandContext 上下文 + 直接返回 RenderResult。
@@ -301,7 +301,7 @@ class CommandHandler:
 
     async def handle_help(self, ctx: CommandContext) -> RenderResult:
         """显示帮助信息"""
-        help_text = """📖 Minecraft 适配器指令帮助
+        help_text = """📖 Minecraft 聊天适配器指令帮助
 
 基础指令:
     /mc help - 显示此帮助信息

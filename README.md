@@ -1,6 +1,8 @@
 <div align="center">
 
-# ⛏️ Minecraft 适配器（MaiBot 版）
+<img src="https://raw.githubusercontent.com/OMSociety/maibot_plugin_minecraft_adapter/main/logo.png" width="120" alt="logo">
+
+# ⛏️ Minecraft 聊天适配器
 
 连接 **Minecraft 服务器** 与 **MaiBot**，实现游戏内 AI 聊天、跨平台消息互通和服务器远程管理。
 

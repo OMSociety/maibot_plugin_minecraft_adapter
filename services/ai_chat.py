@@ -1,4 +1,4 @@
-"""AI 聊天服务（MaiBot 版）——游戏内玩家与 bot 对话。
+"""AI 聊天服务——游戏内玩家与 bot 对话。
 
 从 AstrBot 版 platform/adapter.py + platform/event.py 迁移：
 - AstrBot 通过平台适配器 + 事件队列走完整消息管线；

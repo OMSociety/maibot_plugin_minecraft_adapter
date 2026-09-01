@@ -131,9 +131,9 @@ class McServerConfig(PluginConfigBase):
 class MinecraftAdapterConfig(PluginConfigBase):
     """插件完整配置"""
 
-    __ui_label__ = "Minecraft 适配器"
+    __ui_label__ = "Minecraft 聊天适配器"
 
-    enabled: bool = Field(default=True, description="启用 Minecraft 适配器")
+    enabled: bool = Field(default=True, description="启用 Minecraft 聊天适配器")
     mc_servers: list[McServerConfig] = Field(
         default_factory=list, description="MC 服务器列表"
     )
@@ -143,7 +143,7 @@ class MinecraftAdapterConfig(PluginConfigBase):
 
 
 class MinecraftAdapterPlugin(MaiBotPlugin):
-    """Minecraft 适配器插件"""
+    """Minecraft 聊天适配器插件"""
 
     config_model = MinecraftAdapterConfig
 
@@ -303,7 +303,9 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
     # ── @Command：mc 命令组 ─────────────────────────────
 
     @Command(
-        "mc_help", description="显示 Minecraft 适配器帮助", pattern=r"^/mc(?:\s+help)?$"
+        "mc_help",
+        description="显示 Minecraft 聊天适配器帮助",
+        pattern=r"^/mc(?:\s+help)?$",
     )
     async def handle_mc_help(self, **kwargs):
         if not self.command_handler:

@@ -1,4 +1,4 @@
-"""Minecraft 适配器插件的数据模型"""
+"""Minecraft 聊天适配器插件的数据模型"""
 
 from dataclasses import dataclass, field
 from enum import Enum

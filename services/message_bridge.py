@@ -1,4 +1,4 @@
-"""MC 与其他平台之间转发消息的消息桥接服务（MaiBot 版）。
+"""MC 与其他平台之间转发消息的消息桥接服务。
 
 从 AstrBot 版 services/message_bridge.py 迁移：
 - 出站（MC → 外部）由 context.send_message(umo) 改为注入的 send_text 回调（ctx.send.text）。

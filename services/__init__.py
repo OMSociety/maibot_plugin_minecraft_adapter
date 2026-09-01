@@ -1,4 +1,4 @@
-# Minecraft 适配器的服务模块
+# Minecraft 聊天适配器的服务模块
 from .ai_chat import AIChatService
 from .binding import BindingService
 from .message_bridge import MessageBridge
