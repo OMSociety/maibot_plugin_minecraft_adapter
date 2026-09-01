@@ -45,56 +45,103 @@ class McServerConfig(PluginConfigBase):
 
     __ui_label__ = "MC 服务器"
 
-    enabled: bool = Field(default=True, description="启用此服务器")
+    enabled: bool = Field(
+        default=True,
+        description="启用此服务器",
+        json_schema_extra={"label": "启用此服务器"},
+    )
     # 服务器连接信息
-    server_id: str = Field(default="my_server", description="服务器ID（唯一标识）")
+    server_id: str = Field(
+        default="my_server",
+        description="服务器ID（唯一标识）",
+        json_schema_extra={"label": "服务器 ID", "placeholder": "例如 my_server"},
+    )
     host: str = Field(
         default="localhost",
         description="服务器地址（AstrBotAdapter 所在服务器 IP/域名）",
+        json_schema_extra={
+            "label": "服务器地址",
+            "placeholder": "例如 192.168.1.10",
+        },
     )
-    port: int = Field(default=8765, description="服务器端口（默认 8765）")
+    port: int = Field(
+        default=8765,
+        description="服务器端口（默认 8765）",
+        json_schema_extra={"label": "端口", "placeholder": "8765"},
+    )
     token: str = Field(
-        default="", description="认证 Token（从 AstrBotAdapter 配置获取）"
+        default="",
+        description="认证 Token（从 AstrBotAdapter 配置获取）",
+        json_schema_extra={"label": "认证 Token", "placeholder": "AstrBotAdapter 的 token"},
     )
     # AI 对话 / 渲染
     enable_ai_chat: bool = Field(
-        default=True, description="启用 AI 对话（游戏内和 bot 聊天）"
+        default=True,
+        description="启用 AI 对话（游戏内和 bot 聊天）",
+        json_schema_extra={"label": "启用 AI 对话"},
     )
-    text2image: bool = Field(default=True, description="服务器信息渲染为图片输出")
+    text2image: bool = Field(
+        default=True,
+        description="服务器信息渲染为图片输出",
+        json_schema_extra={"label": "渲染为图片"},
+    )
     # 消息转发配置
     forward_chat_to_astrbot: bool = Field(
-        default=True, description="转发 MC 聊天消息到目标会话"
+        default=True,
+        description="转发 MC 聊天消息到目标会话",
+        json_schema_extra={"label": "转发聊天到目标会话"},
     )
     forward_chat_format: str = Field(
         default="<{player}> {message}",
         description="聊天消息格式（{player} 玩家名，{message} 消息内容）",
+        json_schema_extra={
+            "label": "聊天消息格式",
+            "placeholder": "<{player}> {message}",
+        },
     )
     forward_join_leave_to_astrbot: bool = Field(
-        default=False, description="转发玩家进出消息"
+        default=False,
+        description="转发玩家进出消息",
+        json_schema_extra={"label": "转发进出消息"},
     )
     target_sessions: list[str] = Field(
         default_factory=list,
         description="目标会话 Session ID 列表（在 MaiBot WebUI『聊天管理』查看）",
+        json_schema_extra={"label": "目标会话列表"},
     )
     auto_forward_prefix: str = Field(
-        default="*", description="自动转发前缀（外部消息以此开头才转发，留空转发全部）"
+        default="*",
+        description="自动转发前缀（外部消息以此开头才转发，留空转发全部）",
+        json_schema_extra={
+            "label": "自动转发前缀",
+            "placeholder": "留空转发全部",
+        },
     )
     mark_option: Literal["text", "none"] = Field(
-        default="text", description="转发成功提醒方式（text=文本提醒，none=不提醒）"
+        default="text",
+        description="转发成功提醒方式（text=文本提醒，none=不提醒）",
+        json_schema_extra={"label": "转发提醒方式"},
     )
     # 远程指令配置
-    cmd_enabled: bool = Field(default=True, description="启用远程执行指令")
+    cmd_enabled: bool = Field(
+        default=True,
+        description="启用远程执行指令",
+        json_schema_extra={"label": "启用远程指令"},
+    )
     cmd_white_black_list: Literal["white", "black", "none"] = Field(
         default="white",
         description="指令名单类型（white=仅允许名单内，black=禁止名单内，none=不启用）",
+        json_schema_extra={"label": "指令名单类型"},
     )
     cmd_list: list[str] = Field(
         default_factory=lambda: ["say", "list", "weather", "time"],
         description="指令名单（填指令名，不带 /）",
+        json_schema_extra={"label": "指令名单"},
     )
     custom_cmd_list: list[str] = Field(
         default_factory=list,
         description="自定义指令映射（格式：触发词 <&参数&><<>>实际指令；实际指令名需在 cmd_list 白名单内）",
+        json_schema_extra={"label": "自定义指令映射"},
     )
 
 
@@ -103,8 +150,16 @@ class PluginBaseConfig(PluginConfigBase):
 
     __ui_label__ = "插件基础设置"
 
-    config_version: str = Field(default="1.0.0", description="配置版本号")
-    enabled: bool = Field(default=True, description="是否启用插件")
+    config_version: str = Field(
+        default="1.0.0",
+        description="配置版本号",
+        json_schema_extra={"label": "配置版本", "disabled": True},
+    )
+    enabled: bool = Field(
+        default=True,
+        description="是否启用插件",
+        json_schema_extra={"label": "启用插件"},
+    )
 
 
 class GeneralConfig(PluginConfigBase):
@@ -112,9 +167,18 @@ class GeneralConfig(PluginConfigBase):
 
     __ui_label__ = "通用设置"
 
-    enabled: bool = Field(default=True, description="启用 Minecraft 聊天适配器")
+    enabled: bool = Field(
+        default=True,
+        description="启用 Minecraft 聊天适配器",
+        json_schema_extra={"label": "启用适配器"},
+    )
     mc_servers: list[McServerConfig] = Field(
-        default_factory=list, description="MC 服务器列表"
+        default_factory=list,
+        description="MC 服务器列表",
+        json_schema_extra={
+            "label": "MC 服务器列表",
+            "hint": "点「添加项目」逐个填写服务器连接信息",
+        },
     )
 
 
