@@ -16,7 +16,7 @@
 
 ---
 
-> 📌 本插件由 [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 迁移而来，将 AstrBot 版改为 MaiBot 原生插件（`maibot-plugin-sdk` 2.x）。
+> 📌 本插件由 [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 迁移而来，将 AstrBot 版改为 MaiBot 插件。
 >
 > 孪生项目（MC 服务端插件）：
 > - [AstrBot Adapter](https://github.com/railgun19457/AstrBotAdapter)（Bukkit/Paper/Folia/Velocity）
