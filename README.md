@@ -12,7 +12,7 @@
 [![Stars](https://img.shields.io/github/stars/OMSociety/maibot_plugin_minecraft_adapter)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/stargazers)
 [![Issues](https://img.shields.io/github/issues/OMSociety/maibot_plugin_minecraft_adapter)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/issues)
 
-[✨ 核心特性](#-核心特性) • [📖 功能概览](#-功能概览) • [🚀 快速开始](#-快速开始) • [⚙️ 配置项说明](#️-配置项说明) • [⌨️ 命令](#-命令) • [⚠️ 常见问题](#️-常见问题) • [📝 更新日志](CHANGELOG.md)
+[✨ 核心特性](#-核心特性) • [📖 功能概览](#-功能概览) • [🚀 快速开始](#-快速开始) • [⚙️ 配置项说明](#️-配置项说明) • [⌨️ 命令](#️-命令) • [⚠️ 常见问题](#️-常见问题) • [📝 更新日志](CHANGELOG.md)
 
 </div>
 
