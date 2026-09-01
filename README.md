@@ -177,7 +177,7 @@ A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` �
 A：能。目标会话用 stream_id 而非平台专用群号，任何适配器（napcat / QQ 官方 / telegram）都通用。
 
 **Q：数据存在哪？**
-A：用户绑定在 `data/plugins/github.omsociety.maibot-plugin-minecraft-adapter/mc_bindings.json`；渲染缓存/字体在插件 `runtime_dir`。
+A：用户绑定在 `data/plugins/omsociety.minecraft-adapter/mc_bindings.json`；渲染缓存/字体在插件 `runtime_dir`。
 
 ---
 

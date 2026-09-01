@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "id": "github.omsociety.maibot-plugin-minecraft-adapter",
+  "id": "omsociety.minecraft-adapter",
   "version": "1.0.0",
   "name": "Minecraft 聊天适配器",
   "description": "连接 Minecraft 服务器与 MaiBot，实现游戏内 AI 聊天、跨平台消息互通和服务器远程管理（状态查询/玩家列表/远程指令）",
