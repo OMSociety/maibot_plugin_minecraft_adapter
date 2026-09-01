@@ -294,6 +294,11 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
     # ── 服务器回调 ──────────────────────────────────────
 
     async def _on_server_message(self, server_id: str, msg: MCMessage):
+        # [Diag] 临时诊断：打印路由决策
+        logger.info(
+            f"[MC Adapter][Diag] server={server_id} 收到消息 type={msg.type} "
+            f"content={(msg.payload or {}).get('content', '')!r}"
+        )
         config = self._server_configs.get(server_id)
         if not config:
             return
@@ -328,9 +333,17 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
     async def _send_text(self, text: str, stream_id: str) -> bool:
         """发送文本到指定聊天流（注入给 MessageBridge）。"""
         if not text or not stream_id:
+            logger.info(
+                f"[MC Adapter][Diag] 发送文本跳过（空文本或空 stream_id）"
+                f"text={text!r} stream_id={stream_id!r}"
+            )
             return False
         try:
             result = await self.ctx.send.text(text, stream_id)
+            logger.info(
+                f"[MC Adapter][Diag] 发送文本 stream_id={stream_id!r} "
+                f"len={len(text)} result={result!r}"
+            )
             return bool(result)
         except Exception as e:
             logger.warning(f"[MC Adapter] 发送文本失败: {e}")

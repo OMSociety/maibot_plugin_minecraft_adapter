@@ -74,11 +74,15 @@ class MessageBridge:
         """
         config = self._server_configs.get(server_id)
         if not config:
+            logger.info(f"[MessageBridge][Diag] 未找到服务器配置 server={server_id}")
             return False
 
         # 检查是否已启用转发
         if msg.type == MessageType.MESSAGE_FORWARD:
             if not config.forward_chat_to_astrbot:
+                logger.info(
+                    "[MessageBridge][Diag] MESSAGE_FORWARD 但 forward_chat_to_astrbot=关闭"
+                )
                 return False
             # Suppress echo: if this message was recently forwarded FROM external
             content = msg.payload.get("content", "")
@@ -101,13 +105,19 @@ class MessageBridge:
         # 获取目标会话
         targets = config.target_sessions
         if not targets:
+            logger.info("[MessageBridge][Diag] target_sessions 为空，不转发")
             return False
 
         # 格式化消息内容
         content = self._format_mc_message(msg, config)
         if not content:
+            logger.info("[MessageBridge][Diag] 格式化后内容为空，不转发")
             return False
 
+        logger.info(
+            f"[MessageBridge][Diag] 转发到 {len(targets)} 个会话 "
+            f"targets={targets!r} content={content!r}"
+        )
         # 发送到每个目标会话
         for target_stream_id in targets:
             await self._send_to_stream(target_stream_id, content)
