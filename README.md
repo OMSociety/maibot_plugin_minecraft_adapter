@@ -42,6 +42,9 @@
 - **MC → 外部**：MC 玩家聊天 / 进出提示按 `forward_chat_format` 格式化后转发到目标会话。
 - **外部 → MC**：目标会话里带 `auto_forward_prefix` 前缀的消息转发到 MC。
 
+> 🔑 **`target_sessions` 填 Session ID**：MaiBot 给每个群/私聊分配唯一 **Session ID**（WebUI「聊天管理」点开会话详情可看），**不是用户 ID、也不是 AstrBot 的 UMO**。转发靠它定位目标会话。
+> ⚠️ **两条线独立**：`enable_ai_chat`（游戏内 AI 聊天）和 `forward_chat_to_astrbot`（互通到外部会话）是**两条不同消息线**、可同时开。想让玩家聊天显示到外部会话，必须让聊天走**转发线**（`MESSAGE_FORWARD`）；若被当 AI 聊天，回复发生在游戏内、不进外部会话。
+
 ### 🖥️ 服务器远程管理
 `/mc status` / `/mc list` / `/mc player` 查询服务器状态、在线玩家、玩家详情，默认渲染为精美图片卡片；`/mc cmd` 远程执行指令（白名单 + 操作员级双重校验）。
 
@@ -158,7 +161,9 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 A：在插件配置 `target_sessions` 里填目标会话的 **Session ID**（不是 AstrBot 的 UMO）。在 MaiBot WebUI「**聊天管理**」里，点开对应群/私聊的会话详情就能看到它的 Session ID，复制填入即可。
 
 **Q：消息没互通？**
-A：检查三点：① `target_sessions` 是否放了正确的 Session ID；② 外部消息是否带 `auto_forward_prefix` 前缀（默认 `*`）；③ 是否启用 `forward_chat_to_astrbot`。
+A：按方向排查：
+- **外部 → MC**：① `target_sessions` 是否放了目标会话的 **Session ID**；② 外部消息是否带 `auto_forward_prefix` 前缀（默认 `*`）；③ 是否启用 `forward_chat_to_astrbot`。
+- **MC → 外部**：① `forward_chat_to_astrbot` 开；② `target_sessions` 填了正确的 **Session ID**；③ 确认该聊天走的是**转发线**（`MESSAGE_FORWARD`）而非 AI 聊天线（`enable_ai_chat`）——AI 聊天回复在游戏内，不进外部会话。
 
 **Q：`/mc cmd` 提示没权限？**
 A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` 配置操作员列表，且该命令可能被 `cmd_white_black_list` 白名单拦截。
