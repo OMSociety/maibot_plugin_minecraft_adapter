@@ -1,0 +1,52 @@
+{
+  "manifest_version": 2,
+  "id": "github.omsociety.maibot-plugin-minecraft-adapter",
+  "version": "1.0.0",
+  "name": "Minecraft 适配器",
+  "description": "连接 Minecraft 服务器与 MaiBot，实现游戏内 AI 聊天、跨平台消息互通和服务器远程管理（状态查询/玩家列表/远程指令）",
+  "author": {
+    "name": "OMSociety",
+    "url": "https://github.com/OMSociety"
+  },
+  "license": "AGPL-3.0",
+  "urls": {
+    "repository": "https://github.com/OMSociety/maibot_plugin_minecraft_adapter"
+  },
+  "host_application": {
+    "min_version": "1.0.0",
+    "max_version": "1.99.99"
+  },
+  "sdk": {
+    "min_version": "1.0.0",
+    "max_version": "2.99.99"
+  },
+  "dependencies": [
+    {
+      "type": "python_package",
+      "name": "aiohttp",
+      "version_spec": ">=3.8.0"
+    },
+    {
+      "type": "python_package",
+      "name": "Pillow",
+      "version_spec": ">=9.1.0"
+    }
+  ],
+  "plugin_type": "integration",
+  "display": {
+    "icon": {
+      "type": "emoji",
+      "value": "⛏️"
+    }
+  },
+  "capabilities": [
+    "send.text",
+    "send.image",
+    "llm.generate",
+    "config.get",
+    "chat.get_all_streams"
+  ],
+  "i18n": {
+    "default_locale": "zh-CN"
+  }
+}

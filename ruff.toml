@@ -1,0 +1,9 @@
+# ruff 配置（maibot_plugin_minecraft_adapter）
+# 沿用 AstrBot 版与前几个 MaiBot 插件的策略：使用 ruff 默认规则（E/F）。
+# 以下 ignore 为防御性声明（针对 `ruff check --select ALL` 等更宽选择集）：
+# - BLE001 / S110 / S112：网络层/渲染层有意的"单点异常不崩溃"兜底（已有日志）
+# - DTZ：插件面向本地时区运行，naive 本地时间是既定模式
+target-version = "py311"
+
+[lint]
+ignore = ["BLE001", "S110", "S112", "DTZ"]

@@ -1,0 +1,22 @@
+# 运行时配置（由 Runner 生成）
+/config.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 测试与工具缓存
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 渲染缓存（运行时生成）
+.cache/
+
+# IDE
+.idea/
+.vscode/
