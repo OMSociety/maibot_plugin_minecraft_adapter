@@ -300,7 +300,6 @@ class CommandHandler:
 
 基础指令:
     /mc help - 显示此帮助信息
-    /mc sid - 查看可用的会话 stream_id（用于目标会话配置）
     /mc status - 查看服务器状态
     /mc list - 查看在线玩家列表
     /mc player <玩家ID> - 查看玩家详细信息
@@ -327,7 +326,7 @@ class CommandHandler:
         all_servers = self._get_session_all_servers(ctx.stream_id)
         if not all_servers:
             return RenderResult(
-                "❌ 当前会话未关联任何服务器，请在插件配置中将此会话的 stream_id 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
                 is_image=False,
             )
 
@@ -424,7 +423,7 @@ class CommandHandler:
         all_servers = self._get_session_all_servers(ctx.stream_id)
         if not all_servers:
             return RenderResult(
-                "❌ 当前会话未关联任何服务器，请在插件配置中将此会话的 stream_id 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
                 is_image=False,
             )
 
@@ -475,7 +474,7 @@ class CommandHandler:
         all_servers = self._get_session_all_servers(ctx.stream_id)
         if not all_servers:
             return RenderResult(
-                "❌ 当前会话未关联任何服务器，请在插件配置中将此会话的 stream_id 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
                 is_image=False,
             )
 
@@ -538,7 +537,7 @@ class CommandHandler:
         servers = self._get_session_servers(ctx.stream_id)
         if not servers:
             return RenderResult(
-                "❌ 当前会话未关联任何服务器，请在插件配置中将此会话的 stream_id 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
                 is_image=False,
             )
 
@@ -885,7 +884,7 @@ class CommandHandler:
         if not servers:
             return (
                 None,
-                "❌ 当前会话未关联任何服务器，请在插件配置中将此会话的 stream_id 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
             )
 
         if len(servers) == 1:

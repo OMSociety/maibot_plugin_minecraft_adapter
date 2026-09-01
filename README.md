@@ -74,7 +74,7 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 ### 第三步：配置
 
 1. 在插件配置里添加一个 MC 服务器，填 `server_id` / `host` / `port` / `token`
-2. 用 `/mc sid` 查看目标会话的 `stream_id`，填入 `target_sessions`
+2. 在 MaiBot WebUI「**聊天管理**」里查看目标会话的 **Session ID**，填入 `target_sessions`
 3. 按需调整消息转发 / 远程指令相关设置
 
 ### 第四步：使用
@@ -98,7 +98,7 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | 消息转发 | `forward_chat_to_astrbot` | bool | `true` | 转发 MC 聊天到目标会话 |
 | 消息转发 | `forward_chat_format` | string | `"<{player}> {message}"` | 转发格式 |
 | 消息转发 | `forward_join_leave_to_astrbot` | bool | `false` | 转发玩家进出提示 |
-| 消息转发 | `target_sessions` | list | `[]` | 目标会话 stream_id 列表（`/mc sid` 获取） |
+| 消息转发 | `target_sessions` | list | `[]` | 目标会话的 Session ID 列表（WebUI「聊天管理」查看） |
 | 消息转发 | `auto_forward_prefix` | string | `"*"` | 转发前缀（留空转发全部） |
 | 消息转发 | `mark_option` | string | `"text"` | 转发成功提醒（text/none） |
 | 远程指令 | `cmd_enabled` | bool | `true` | 远程指令总开关 |
@@ -106,9 +106,9 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | 远程指令 | `cmd_list` | list | `["say","list","weather","time"]` | 指令名单 |
 | 远程指令 | `custom_cmd_list` | list | `[]` | 自定义指令映射（实际指令名需在白名单内） |
 
-> 💡 **`/mc cmd` 与 `/mc sid` 为操作员级命令**：需在 MaiBot 的 `[plugin].permission` 配置操作员列表（如 `qq:123456789`）后才能执行。
+> 💡 **`/mc cmd` 为操作员级命令**：需在 MaiBot 的 `[plugin].permission` 配置操作员列表（如 `qq:123456789`）后才能执行。
 >
-> 💡 **目标会话用 stream_id**：MaiBot 给每个群/私聊分配唯一会话 ID（重启不变），用 `/mc sid` 命令可查，不是 AstrBot 的 UMO。
+> 💡 **目标会话用 Session ID**：MaiBot 给每个群/私聊分配唯一会话 ID（重启不变），在 MaiBot WebUI「**聊天管理**」里查看，不是 AstrBot 的 UMO。
 >
 > 💡 **自定义指令受白名单约束**：`custom_cmd_list` 里映射出的实际指令名（如 `tp`/`give`）必须同时加入 `cmd_list` 白名单才会生效。
 
@@ -143,7 +143,6 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | 命令 | 说明 | 权限 |
 |:-----|:-----|:-----|
 | `/mc help` | 显示帮助与自定义指令列表 | 公开 |
-| `/mc sid` | 查看可用的会话 stream_id（填配置用） | **操作员** |
 | `/mc status` | 查看服务器状态 | 公开 |
 | `/mc list` | 查看在线玩家列表 | 公开 |
 | `/mc player <玩家ID>` | 查看玩家详细信息 | 公开 |
@@ -156,10 +155,10 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 ## ⚠️ 常见问题
 
 **Q：目标会话怎么填？**
-A：在插件配置 `target_sessions` 里填 **stream_id**（不是 AstrBot 的 UMO）。在任意和 bot 说过话的会话发 `/mc sid`，bot 会列出带群名/私聊名的会话列表，复制对应 `stream_id` 填入即可。
+A：在插件配置 `target_sessions` 里填目标会话的 **Session ID**（不是 AstrBot 的 UMO）。在 MaiBot WebUI「**聊天管理**」里，点开对应群/私聊的会话详情就能看到它的 Session ID，复制填入即可。
 
 **Q：消息没互通？**
-A：检查三点：① `target_sessions` 是否放了正确的 stream_id；② 外部消息是否带 `auto_forward_prefix` 前缀（默认 `*`）；③ 是否启用 `forward_chat_to_astrbot`。
+A：检查三点：① `target_sessions` 是否放了正确的 Session ID；② 外部消息是否带 `auto_forward_prefix` 前缀（默认 `*`）；③ 是否启用 `forward_chat_to_astrbot`。
 
 **Q：`/mc cmd` 提示没权限？**
 A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` 配置操作员列表，且该命令可能被 `cmd_white_black_list` 白名单拦截。
@@ -168,7 +167,7 @@ A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` �
 A：自定义指令映射出的实际指令名（如 `tp`/`give`）受 `cmd_list` 白名单约束，需把指令名加入白名单（或把 `cmd_white_black_list` 设为 `none`）才会执行。
 
 **Q：换平台适配器（如 QQ 官方）也能用吗？**
-A：能。目标会话用 stream_id 而非平台专用群号，任何适配器（napcat / QQ 官方 / telegram）都通用。
+A：能。目标会话用 Session ID 而非平台专用群号，任何适配器（napcat / QQ 官方 / telegram）都通用。
 
 **Q：首次渲染卡片会访问哪些外部资源？**
 A：首次渲染会从第三方镜像下载字体，并访问 Mojang API / 头像 CDN 获取玩家头像，之后走本地缓存。

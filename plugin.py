@@ -9,7 +9,7 @@
 
 关键差异（相对 AstrBot 版）：
 - 平台适配器（Platform 基类 + 事件队列）→ 移除，AI 聊天改直连 LLM
-- 目标会话：AstrBot UMO → MaiBot stream_id（/mc sid 命令可查）
+- 目标会话：AstrBot UMO → MaiBot Session ID（在 MaiBot WebUI『聊天管理』查看）
 - 入站消息监听：@filter 事件 → @HookHandler("chat.receive.after_process")
 - 存储：get_astrbot_data_path() → ctx.paths.data_dir / runtime_dir
 """
@@ -74,7 +74,7 @@ class McServerConfig(PluginConfigBase):
     )
     target_sessions: list = Field(
         default_factory=list,
-        description="目标会话 stream_id 列表（用 /mc sid 命令查看）",
+        description="目标会话 Session ID 列表（在 MaiBot WebUI『聊天管理』查看）",
     )
     auto_forward_prefix: str = Field(
         default="*", description="自动转发前缀（外部消息以此开头才转发，留空转发全部）"
@@ -292,44 +292,6 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         result = await self.command_handler.handle_help(ctx)
         await self._send_result(result, ctx.stream_id)
         return True, "帮助已发送", 2
-
-    @Command(
-        "mc_sid",
-        description="查看可用的会话 stream_id",
-        pattern=r"^/mc\s+sid$",
-        permission="operator",
-    )
-    async def handle_mc_sid(self, **kwargs):
-        stream_id = str(kwargs.get("stream_id", "") or "")
-        try:
-            streams = await self.ctx.chat.get_all_streams(platform="all_platforms")
-            streams = streams or []
-        except Exception as e:
-            await self.ctx.send.text(f"❌ 获取会话列表失败: {e}", stream_id)
-            return True, "获取失败", 2
-
-        if not streams:
-            await self.ctx.send.text(
-                "📋 当前没有可用的聊天流。请先在目标群/私聊里和 bot 说过话。", stream_id
-            )
-            return True, "无会话", 2
-
-        lines = ["📋 可用会话（把 stream_id 填进插件配置的 target_sessions）:"]
-        for s in streams:
-            if not isinstance(s, dict):
-                continue
-            sid = s.get("stream_id") or s.get("session_id") or ""
-            platform = s.get("platform", "")
-            if s.get("is_group_session") or s.get("chat_type") == "group":
-                name = s.get("group_name") or "未命名群"
-                kind = "群"
-            else:
-                name = f"{s.get('user_nickname') or '未知用户'}的私聊"
-                kind = "私聊"
-            lines.append(f"  [{name}] 平台={platform} ({kind})")
-            lines.append(f"    stream_id = {sid}")
-        await self.ctx.send.text("\n".join(lines), stream_id)
-        return True, "会话列表已发送", 2
 
     @Command("mc_status", description="查看服务器状态", pattern=r"^/mc\s+status$")
     async def handle_mc_status(self, **kwargs):

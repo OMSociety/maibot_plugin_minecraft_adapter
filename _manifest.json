@@ -44,8 +44,7 @@
     "send.text",
     "send.image",
     "llm.generate",
-    "config.get",
-    "chat.get_all_streams"
+    "config.get"
   ],
   "i18n": {
     "default_locale": "zh-CN"
