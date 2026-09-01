@@ -400,7 +400,8 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
                 await self._send_result(result, stream_id)
                 return {"action": "abort"}
 
-        # 3. 消息转发到 MC
+        # 3. 消息转发到 MC（返回 True 表示「前缀命中、已作为 MC 指令转发」，需要中止后续处理；
+        #    空前缀=全量镜像只转发不中止，bot 仍可正常回复）
         if self.message_bridge:
             forwarded = await self.message_bridge.handle_external_message(
                 stream_id=stream_id,

@@ -167,22 +167,27 @@ class MessageBridge:
         """处理来自外部平台的消息并在需要时转发到 MC
 
         由 plugin 的 chat.receive.after_process Hook 调用。
-        如果消息被转发则返回 True（用于决定是否中止后续消息处理）。
+
+        返回 True 表示应**中止**后续消息处理（仅当消息命中非空前缀、作为 MC 指令转发时）。
+        空前缀（镜像全部）只转发不中止，返回 False，bot 仍可正常回复该消息。
         """
         any_forwarded = False
+        should_consume = False
         for server_id, config in self._server_configs.items():
             # 检查此会话是否在目标会话列表中
             if not config.target_sessions or stream_id not in config.target_sessions:
                 continue
 
-            # 前缀为空时转发全部消息，否则检查前缀
+            # 前缀为空时镜像全部消息（不中止）；否则仅前缀匹配的消息才转发（并中止）
             if config.auto_forward_prefix:
                 if not content.startswith(config.auto_forward_prefix):
                     continue
                 # 移除前缀
                 forwarded = content[len(config.auto_forward_prefix) :].strip()
+                consume = True
             else:
                 forwarded = content.strip()
+                consume = False
 
             if not forwarded:
                 continue
@@ -207,8 +212,10 @@ class MessageBridge:
                     if not any_forwarded:
                         await self._send_forward_feedback(stream_id, config)
                     any_forwarded = True
+                    if consume:
+                        should_consume = True
 
-        return any_forwarded
+        return should_consume
 
     async def _send_forward_feedback(self, stream_id: str, config: ServerConfig):
         """在消息转发成功后发送反馈
