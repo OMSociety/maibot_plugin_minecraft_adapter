@@ -5,7 +5,7 @@
 功能：
 - AI 聊天：游戏内玩家与 bot 对话（直连 ctx.llm.generate + 全局人格注入）
 - 消息互通：MC 服务器 ↔ 外部会话（ctx.send.text + chat.receive.after_process Hook）
-- 服务器管理：/mc status|list|player|cmd|bind|unbind（@Command + PIL 渲染图）
+- 服务器管理：/mc status|list|player|cmd（@Command + PIL 渲染图）
 
 关键差异（相对 AstrBot 版）：
 - 平台适配器（Platform 基类 + 事件队列）→ 移除，AI 聊天改直连 LLM
@@ -31,7 +31,6 @@ from .core.models import MCMessage, MessageType, ServerConfig, ServerInfo
 from .core.server_manager import ServerManager
 from .handlers.commands import CommandContext, CommandHandler
 from .services.ai_chat import AIChatService
-from .services.binding import BindingService
 from .services.message_bridge import MessageBridge
 from .services.renderer import InfoRenderer, RenderResult
 
@@ -98,14 +97,9 @@ class CmdConfig(PluginConfigBase):
         default_factory=lambda: ["say", "list", "weather", "time"],
         description="指令名单（填指令名，不带 /）",
     )
-    bind_enable: bool = Field(default=True, description="启用用户绑定功能")
     custom_cmd_list: list = Field(
-        default_factory=lambda: [
-            "head <&player&><<>>give {sender} minecraft:player_head[minecraft:profile='<&player&>'] 1",
-            "tpa <&player&><<>>tpa {sender} {player}",
-            "tp <&X&> <&y&> <&z&><<>>tp {sender} <&X&> <&y&> <&z&>",
-        ],
-        description="自定义指令映射（格式：触发词 <&参数&><<>>实际指令）",
+        default_factory=list,
+        description="自定义指令映射（格式：触发词 <&参数&><<>>实际指令；实际指令名需在 cmd_list 白名单内）",
     )
 
 
@@ -150,7 +144,6 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
     def __init__(self) -> None:
         super().__init__()
         self.server_manager = ServerManager()
-        self.binding_service: BindingService | None = None
         self.message_bridge: MessageBridge | None = None
         self.ai_chat: AIChatService | None = None
         self.renderer: InfoRenderer | None = None
@@ -164,8 +157,6 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         data_dir = self.ctx.paths.data_dir
         runtime_dir = self.ctx.paths.runtime_dir
         data_dir.mkdir(parents=True, exist_ok=True)
-
-        self.binding_service = BindingService(data_dir)
 
         # 解析服务器配置
         for server_model in self.config.mc_servers:
@@ -203,7 +194,6 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         # 命令处理器
         self.command_handler = CommandHandler(
             server_manager=self.server_manager,
-            binding_service=self.binding_service,
             renderer=self.renderer,
             get_server_config=lambda sid: self._server_configs.get(sid),
         )
@@ -401,30 +391,6 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         result = await self.command_handler.handle_cmd(ctx, command)
         await self._send_result(result, ctx.stream_id)
         return True, "指令已执行", 2
-
-    @Command(
-        "mc_bind",
-        description="绑定你的游戏ID",
-        pattern=r"^/mc\s+bind(?:\s+(?P<player_id>\S+))?$",
-    )
-    async def handle_mc_bind(self, **kwargs):
-        if not self.command_handler:
-            return False, "未初始化", 1
-        ctx = self._build_context(kwargs)
-        matched = kwargs.get("matched_groups") or {}
-        player_id = (matched.get("player_id") or "").strip()
-        result = await self.command_handler.handle_bind(ctx, player_id)
-        await self._send_result(result, ctx.stream_id)
-        return True, "绑定已处理", 2
-
-    @Command("mc_unbind", description="解除绑定", pattern=r"^/mc\s+unbind$")
-    async def handle_mc_unbind(self, **kwargs):
-        if not self.command_handler:
-            return False, "未初始化", 1
-        ctx = self._build_context(kwargs)
-        result = await self.command_handler.handle_unbind(ctx)
-        await self._send_result(result, ctx.stream_id)
-        return True, "解绑已处理", 2
 
     # ── @HookHandler：入站消息观察（转发/编号选择/自定义指令）──
 

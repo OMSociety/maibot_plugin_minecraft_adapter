@@ -16,7 +16,6 @@ from ..services.renderer import RenderResult
 
 if TYPE_CHECKING:
     from ..core.server_manager import ServerManager
-    from ..services.binding import BindingService
     from ..services.renderer import InfoRenderer
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,7 @@ class CommandContext:
 
     stream_id: str = ""  # MaiBot 聊天流 ID（会话 ID），用于待选操作去重
     platform: str = ""  # 发送者所在平台名
-    user_id: str = ""  # 发送者用户 ID（用于绑定）
+    user_id: str = ""  # 发送者用户 ID
 
 
 class CustomCommandParser:
@@ -139,7 +138,7 @@ class CmdTarget:
 class PendingAction:
     """A pending action waiting for the user to select a number"""
 
-    action: str  # The command name: "status", "list", "player", "cmd", "bind"
+    action: str  # The command name: "status", "list", "player", "cmd"
     args: dict[str, Any] = field(default_factory=dict)
     servers: list = field(default_factory=list)  # list of ServerConnection
     cmd_targets: list[CmdTarget] = field(
@@ -158,12 +157,10 @@ class CommandHandler:
     def __init__(
         self,
         server_manager: "ServerManager",
-        binding_service: "BindingService",
         renderer: "InfoRenderer",
         get_server_config,
     ):
         self.server_manager = server_manager
-        self.binding_service = binding_service
         self.renderer = renderer
         self.get_server_config = get_server_config
         self._custom_parsers: dict[str, CustomCommandParser] = {}
@@ -269,14 +266,12 @@ class CommandHandler:
                 first_missing_usage = usage
 
             # Get sender's bound MC name
-            sender_mc_name = None
-            if config.bind_enable:
-                binding = self.binding_service.get_binding(ctx.platform, ctx.user_id)
-                sender_mc_name = binding.mc_player_name if binding else None
-
-            result = parser.match(text, sender_mc_name)
+            result = parser.match(text)
             if result:
                 command, _ = result
+                # 自定义指令同样受白名单约束（与 /mc cmd 一致）
+                if not self._check_command_allowed(command, config):
+                    continue
                 matched_command = command
                 server = self.server_manager.get_server(server_id)
                 if not server or not server.connected:
@@ -312,10 +307,6 @@ class CommandHandler:
 
 远程指令:
     /mc cmd <指令> - 远程执行服务器指令
-
-绑定功能:
-    /mc bind <游戏ID> - 绑定你的游戏ID
-    /mc unbind - 解除绑定
 
 多服务器:
     status/list/player 会自动输出所有关联服务器结果
@@ -590,9 +581,6 @@ class CommandHandler:
         if action == "player":
             return await self._do_player(ctx, server, args.get("player_id", ""))
 
-        if action == "bind":
-            return await self._do_bind(ctx, server, args.get("player_id", ""))
-
         return RenderResult("❌ 未知操作", is_image=False)
 
     def _is_cmd_allowed_on_server(self, command: str, server) -> tuple[bool, str]:
@@ -659,49 +647,6 @@ class CommandHandler:
                 f"✅{target_label} 指令执行成功\n{output}", is_image=False
             )
         return RenderResult(f"❌{target_label} 指令执行失败: {output}", is_image=False)
-
-    async def handle_bind(self, ctx: CommandContext, player_id: str) -> RenderResult:
-        """绑定用户到 MC 玩家"""
-        if not player_id:
-            return RenderResult("❌ 请指定要绑定的游戏ID", is_image=False)
-
-        server, msg = self._resolve_server_or_pending(
-            ctx.stream_id, action="bind", args={"player_id": player_id}
-        )
-        if server is None:
-            return RenderResult(msg or "❌ 无可用服务器", is_image=False)
-
-        return await self._do_bind(ctx, server, player_id)
-
-    async def _do_bind(
-        self, ctx: CommandContext, server, player_id: str
-    ) -> RenderResult:
-        """Execute bind on a resolved server"""
-        config = self.get_server_config(server.server_id)
-        if config and not config.bind_enable:
-            return RenderResult("❌ 绑定功能未启用", is_image=False)
-
-        success, message = self.binding_service.bind(
-            platform=ctx.platform,
-            user_id=ctx.user_id,
-            mc_player_name=player_id,
-            server_id=server.server_id,
-        )
-
-        if success:
-            return RenderResult(f"✅ {message}", is_image=False)
-        return RenderResult(f"❌ {message}", is_image=False)
-
-    async def handle_unbind(self, ctx: CommandContext) -> RenderResult:
-        """解绑用户与 MC 玩家的绑定"""
-        success, message = self.binding_service.unbind(
-            platform=ctx.platform,
-            user_id=ctx.user_id,
-        )
-
-        if success:
-            return RenderResult(f"✅ {message}", is_image=False)
-        return RenderResult(f"❌ {message}", is_image=False)
 
     def _get_custom_command_triggers(self) -> list[str]:
         """获取所有服务器的自定义命令触发词列表（去重）"""

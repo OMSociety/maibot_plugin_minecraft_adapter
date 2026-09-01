@@ -53,7 +53,6 @@ def test_command_whitelist_blacklist():
 
     handler = CommandHandler(
         server_manager=_Mgr(),
-        binding_service=_Mgr(),
         renderer=_Mgr(),
         get_server_config=lambda _: None,
     )

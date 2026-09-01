@@ -46,7 +46,6 @@ def test_server_config_from_full_dict():
             "enabled": True,
             "cmd_white_black_list": "white",
             "cmd_list": ["say", "list"],
-            "bind_enable": True,
             "custom_cmd_list": ["tp <&X&><<>>tp {sender} <&X&>"],
         },
     }

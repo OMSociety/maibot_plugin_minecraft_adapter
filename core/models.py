@@ -343,7 +343,6 @@ class ServerConfig:
     cmd_enabled: bool = True
     cmd_white_black_list: str = "white"
     cmd_list: list[str] = field(default_factory=list)
-    bind_enable: bool = True
     custom_cmd_list: list[str] = field(default_factory=list)
 
     @classmethod
@@ -373,7 +372,6 @@ class ServerConfig:
             cmd_enabled=cmd.get("enabled", True),
             cmd_white_black_list=cmd.get("cmd_white_black_list", "white"),
             cmd_list=cmd.get("cmd_list", []),
-            bind_enable=cmd.get("bind_enable", True),
             custom_cmd_list=cmd.get("custom_cmd_list", []),
         )
 

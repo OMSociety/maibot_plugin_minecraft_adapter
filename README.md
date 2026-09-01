@@ -29,8 +29,7 @@
 | 🎮 **AI 聊天** | 游戏内玩家直接和 bot 对话，回复语气继承 MaiBot 全局人格 |
 | 🔁 **消息互通** | MC 服务器 ↔ 外部群/私聊双向转发，支持自定义格式与进出提示 |
 | 🖥️ **服务器管理** | 状态查询 / 在线玩家 / 玩家详情 / 远程指令，信息可渲染为图片 |
-| 👥 **用户绑定** | 外部账号绑定 MC 游戏 ID，自定义指令自动带上 `{sender}` |
-| 🛡️ **指令安全** | 远程指令支持白名单/黑名单，`/mc cmd` 为操作员级命令 |
+| 🛡️ **指令安全** | 远程指令与自定义指令均支持白名单/黑名单，`/mc cmd` 为操作员级命令 |
 
 ---
 
@@ -45,9 +44,6 @@
 
 ### 🖥️ 服务器远程管理
 `/mc status` / `/mc list` / `/mc player` 查询服务器状态、在线玩家、玩家详情，默认渲染为精美图片卡片；`/mc cmd` 远程执行指令（白名单 + 操作员级双重校验）。
-
-### 👥 用户绑定
-外部账号绑定 MC 游戏 ID 后，自定义指令里的 `{sender}` 自动替换为绑定的游戏 ID。
 
 ### 🛡️ 指令安全
 远程指令默认白名单（`["say","list","weather","time"]`），`/mc cmd` 标记为操作员级命令，只有配置了 operator 权限的用户能执行。
@@ -79,11 +75,11 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 
 1. 在插件配置里添加一个 MC 服务器，填 `server.server_id` / `server.host` / `server.port` / `server.token`
 2. 用 `/mc sid` 查看目标会话的 `stream_id`，填入 `message.target_sessions`
-3. 按需调整消息转发 / 远程指令 / 绑定相关设置
+3. 按需调整消息转发 / 远程指令相关设置
 
 ### 第四步：使用
 
-- 在绑定会话发 `/mc status` 验证连通
+- 在目标会话发 `/mc status` 验证连通
 - 发 `/mc cmd say 你好` 远程执行指令（需操作员）
 - 在 MC 游戏内直接和 bot 聊天
 
@@ -108,12 +104,13 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | 远程指令 | `cmd.enabled` | bool | `true` | 远程指令总开关 |
 | 远程指令 | `cmd.cmd_white_black_list` | string | `"white"` | white/black/none |
 | 远程指令 | `cmd.cmd_list` | list | `["say","list","weather","time"]` | 指令名单 |
-| 远程指令 | `cmd.bind_enable` | bool | `true` | 用户绑定开关 |
-| 远程指令 | `cmd.custom_cmd_list` | list | `["tp <&X&> <&y&> <&z&><<>>tp {sender} <&X&> <&y&> <&z&>"]` | 自定义指令映射 |
+| 远程指令 | `cmd.custom_cmd_list` | list | `[]` | 自定义指令映射（实际指令名需在白名单内） |
 
 > 💡 **`/mc cmd` 与 `/mc sid` 为操作员级命令**：需在 MaiBot 的 `[plugin].permission` 配置操作员列表（如 `qq:123456789`）后才能执行。
 >
 > 💡 **目标会话用 stream_id**：MaiBot 给每个群/私聊分配唯一会话 ID（重启不变），用 `/mc sid` 命令可查，不是 AstrBot 的 UMO。
+>
+> 💡 **自定义指令受白名单约束**：`cmd.custom_cmd_list` 里映射出的实际指令名（如 `tp`/`give`）必须同时加入 `cmd.cmd_list` 白名单才会生效。
 
 **快速配置模板（单个服务器）：**
 
@@ -135,10 +132,7 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
     "enabled": true,
     "cmd_white_black_list": "white",
     "cmd_list": ["say", "list", "weather", "time"],
-    "bind_enable": true,
-    "custom_cmd_list": [
-      "tp <&X&> <&y&> <&z&><<>>tp {sender} <&X&> <&y&> <&z&>"
-    ]
+    "custom_cmd_list": []
   }
 }
 ```
@@ -155,8 +149,6 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | `/mc list` | 查看在线玩家列表 | 公开 |
 | `/mc player <玩家ID>` | 查看玩家详细信息 | 公开 |
 | `/mc cmd <指令>` | 远程执行服务器指令 | **操作员** |
-| `/mc bind <游戏ID>` | 绑定你的游戏 ID | 公开 |
-| `/mc unbind` | 解除绑定 | 公开 |
 
 > 💡 **多服务器选择**：当前会话关联多个服务器时，需要区分目标的指令会显示服务器列表，发送编号选择目标。
 
@@ -173,11 +165,17 @@ A：检查三点：① `target_sessions` 是否放了正确的 stream_id；② �
 **Q：`/mc cmd` 提示没权限？**
 A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` 配置操作员列表，且该命令可能被 `cmd.cmd_white_black_list` 白名单拦截。
 
+**Q：自定义指令为什么不生效？**
+A：自定义指令映射出的实际指令名（如 `tp`/`give`）受 `cmd.cmd_list` 白名单约束，需把指令名加入白名单（或把 `cmd_white_black_list` 设为 `none`）才会执行。
+
 **Q：换平台适配器（如 QQ 官方）也能用吗？**
 A：能。目标会话用 stream_id 而非平台专用群号，任何适配器（napcat / QQ 官方 / telegram）都通用。
 
+**Q：首次渲染卡片会访问哪些外部资源？**
+A：首次渲染会从第三方镜像下载字体，并访问 Mojang API / 头像 CDN 获取玩家头像，之后走本地缓存。
+
 **Q：数据存在哪？**
-A：用户绑定在 `data/plugins/omsociety.minecraft-adapter/mc_bindings.json`；渲染缓存/字体在插件 `runtime_dir`。
+A：渲染缓存/字体在插件 `runtime_dir`。
 
 ---
 
