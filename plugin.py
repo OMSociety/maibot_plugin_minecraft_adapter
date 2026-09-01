@@ -107,6 +107,17 @@ class PluginBaseConfig(PluginConfigBase):
     enabled: bool = Field(default=True, description="是否启用插件")
 
 
+class GeneralConfig(PluginConfigBase):
+    """通用设置"""
+
+    __ui_label__ = "通用设置"
+
+    enabled: bool = Field(default=True, description="启用 Minecraft 聊天适配器")
+    mc_servers: list[McServerConfig] = Field(
+        default_factory=list, description="MC 服务器列表"
+    )
+
+
 class MinecraftAdapterConfig(PluginConfigBase):
     """插件完整配置"""
 
@@ -115,9 +126,8 @@ class MinecraftAdapterConfig(PluginConfigBase):
     plugin: PluginBaseConfig = Field(
         default_factory=PluginBaseConfig, description="插件基础配置"
     )
-    enabled: bool = Field(default=True, description="启用 Minecraft 聊天适配器")
-    mc_servers: list[McServerConfig] = Field(
-        default_factory=list, description="MC 服务器列表"
+    general: GeneralConfig = Field(
+        default_factory=GeneralConfig, description="通用设置"
     )
 
 
@@ -147,7 +157,7 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         data_dir.mkdir(parents=True, exist_ok=True)
 
         # 解析服务器配置
-        for server_model in self.config.mc_servers:
+        for server_model in self.config.general.mc_servers:
             config = ServerConfig.from_dict(server_model.model_dump())
             if not config.enabled:
                 logger.info(
@@ -197,7 +207,7 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         self.server_manager.set_disconnect_handler(self._on_server_disconnect)
 
         # 启动服务器连接
-        if self.config.enabled:
+        if self.config.general.enabled:
             await self.server_manager.start_all()
         self._running = True
         logger.info(
