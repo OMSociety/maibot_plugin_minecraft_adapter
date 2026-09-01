@@ -40,11 +40,13 @@ logger = logging.getLogger(__name__)
 # ============ 配置模型 ============
 
 
-class ServerConnectionConfig(PluginConfigBase):
-    """服务器连接信息"""
+class McServerConfig(PluginConfigBase):
+    """单个 MC 服务器（扁平配置，字段与 core.models.ServerConfig 对齐）"""
 
-    __ui_label__ = "服务器连接"
+    __ui_label__ = "MC 服务器"
 
+    enabled: bool = Field(default=True, description="启用此服务器")
+    # 服务器连接信息
     server_id: str = Field(default="my_server", description="服务器ID（唯一标识）")
     host: str = Field(
         default="localhost",
@@ -54,13 +56,12 @@ class ServerConnectionConfig(PluginConfigBase):
     token: str = Field(
         default="", description="认证 Token（从 AstrBotAdapter 配置获取）"
     )
-
-
-class MessageForwardConfig(PluginConfigBase):
-    """消息转发配置"""
-
-    __ui_label__ = "消息转发"
-
+    # AI 对话 / 渲染
+    enable_ai_chat: bool = Field(
+        default=True, description="启用 AI 对话（游戏内和 bot 聊天）"
+    )
+    text2image: bool = Field(default=True, description="服务器信息渲染为图片输出")
+    # 消息转发配置
     forward_chat_to_astrbot: bool = Field(
         default=True, description="转发 MC 聊天消息到目标会话"
     )
@@ -81,14 +82,8 @@ class MessageForwardConfig(PluginConfigBase):
     mark_option: Literal["text", "none"] = Field(
         default="text", description="转发成功提醒方式（text=文本提醒，none=不提醒）"
     )
-
-
-class CmdConfig(PluginConfigBase):
-    """远程指令配置"""
-
-    __ui_label__ = "远程指令"
-
-    enabled: bool = Field(default=True, description="启用远程执行指令")
+    # 远程指令配置
+    cmd_enabled: bool = Field(default=True, description="启用远程执行指令")
     cmd_white_black_list: Literal["white", "black", "none"] = Field(
         default="white",
         description="指令名单类型（white=仅允许名单内，black=禁止名单内，none=不启用）",
@@ -101,25 +96,6 @@ class CmdConfig(PluginConfigBase):
         default_factory=list,
         description="自定义指令映射（格式：触发词 <&参数&><<>>实际指令；实际指令名需在 cmd_list 白名单内）",
     )
-
-
-class McServerConfig(PluginConfigBase):
-    """单个 MC 服务器"""
-
-    __ui_label__ = "MC 服务器"
-
-    enabled: bool = Field(default=True, description="启用此服务器")
-    server: ServerConnectionConfig = Field(
-        default_factory=ServerConnectionConfig, description="服务器连接信息"
-    )
-    enable_ai_chat: bool = Field(
-        default=True, description="启用 AI 对话（游戏内和 bot 聊天）"
-    )
-    text2image: bool = Field(default=True, description="服务器信息渲染为图片输出")
-    message: MessageForwardConfig = Field(
-        default_factory=MessageForwardConfig, description="消息转发配置"
-    )
-    cmd: CmdConfig = Field(default_factory=CmdConfig, description="远程指令配置")
 
 
 class PluginBaseConfig(PluginConfigBase):

@@ -347,9 +347,10 @@ class ServerConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> "ServerConfig":
-        server = data.get("server", {})
-        message = data.get("message", {})
-        cmd = data.get("cmd", {})  # cmd 与 message 处于同一层级，不是嵌套关系
+        nested = isinstance(data.get("server"), dict)
+        server = data.get("server", {}) if nested else data
+        message = data.get("message", {}) if nested else data
+        cmd = data.get("cmd", {}) if nested else data
 
         return cls(
             enabled=data.get("enabled", True),
@@ -359,7 +360,9 @@ class ServerConfig:
             token=server.get("token", ""),
             enable_ai_chat=data.get("enable_ai_chat", True),
             text2image=data.get("text2image", True),
-            forward_chat_to_astrbot=message.get("forward_chat_to_astrbot", True),
+            forward_chat_to_astrbot=message.get(
+                "forward_chat_to_astrbot", True
+            ),
             forward_chat_format=message.get(
                 "forward_chat_format", "<{player}> {message}"
             ),
@@ -369,7 +372,7 @@ class ServerConfig:
             target_sessions=message.get("target_sessions", []),
             auto_forward_prefix=message.get("auto_forward_prefix", "*"),
             mark_option=message.get("mark_option", "emoji"),
-            cmd_enabled=cmd.get("enabled", True),
+            cmd_enabled=cmd.get("cmd_enabled", True),
             cmd_white_black_list=cmd.get("cmd_white_black_list", "white"),
             cmd_list=cmd.get("cmd_list", []),
             custom_cmd_list=cmd.get("custom_cmd_list", []),
