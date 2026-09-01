@@ -199,15 +199,6 @@ class WebSocketClient:
             处理不同类型的消息，包括心跳、断开连接、错误消息，
             并将其他类型转发给注册的处理器。
         """
-        # [Diag] 临时诊断：打印收到的非心跳消息类型与内容
-        if msg.type not in (MessageType.HEARTBEAT, MessageType.HEARTBEAT_ACK):
-            _content = (msg.payload or {}).get("content", "")
-            _player = getattr(msg.source, "player_name", "") or ""
-            logger.info(
-                f"[MC-{self.server_id}][Diag] WS收到消息 type={msg.type} "
-                f"player={_player!r} content={_content!r}"
-            )
-
         if msg.type == MessageType.HEARTBEAT:
             # 响应服务器心跳
             await self._send_heartbeat_ack(msg.id)
@@ -232,9 +223,6 @@ class WebSocketClient:
         else:
             # 转发到消息处理器
             if self.on_message:
-                logger.info(
-                    f"[MC-{self.server_id}][Diag] 交由 on_message 处理 type={msg.type}"
-                )
                 try:
                     await self.on_message(msg)
                 except Exception as e:
