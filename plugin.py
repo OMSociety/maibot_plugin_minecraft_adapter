@@ -72,7 +72,7 @@ class McServerConfig(PluginConfigBase):
     forward_join_leave_to_astrbot: bool = Field(
         default=False, description="转发玩家进出消息"
     )
-    target_sessions: list = Field(
+    target_sessions: list[str] = Field(
         default_factory=list,
         description="目标会话 Session ID 列表（在 MaiBot WebUI『聊天管理』查看）",
     )
@@ -88,11 +88,11 @@ class McServerConfig(PluginConfigBase):
         default="white",
         description="指令名单类型（white=仅允许名单内，black=禁止名单内，none=不启用）",
     )
-    cmd_list: list = Field(
+    cmd_list: list[str] = Field(
         default_factory=lambda: ["say", "list", "weather", "time"],
         description="指令名单（填指令名，不带 /）",
     )
-    custom_cmd_list: list = Field(
+    custom_cmd_list: list[str] = Field(
         default_factory=list,
         description="自定义指令映射（格式：触发词 <&参数&><<>>实际指令；实际指令名需在 cmd_list 白名单内）",
     )
