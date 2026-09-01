@@ -309,7 +309,9 @@ class InfoRenderer:
         self, session: aiohttp.ClientSession, url: str
     ) -> Image.Image | None:
         try:
-            async with session.get(url) as resp:
+            # allow_redirects=False：URL 主机均为硬编码的固定头像站（mc-heads/minotar/
+            # crafatar/mojang），无需重定向；关闭重定向避免被 302 带向任意地址（SSRF 纵深防御）。
+            async with session.get(url, allow_redirects=False) as resp:
                 if resp.status != 200:
                     return None
                 data = await resp.read()

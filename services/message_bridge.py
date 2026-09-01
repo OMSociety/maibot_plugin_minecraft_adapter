@@ -31,7 +31,7 @@ class MessageBridge:
         Args:
             server_manager: 服务器连接管理器
             server_configs: server_id -> ServerConfig 映射
-            send_text: async (stream_id, text) -> bool，发送文本到外部会话
+            send_text: async (text, stream_id) -> bool，发送文本到外部会话
         """
         self.server_manager = server_manager
         self._server_configs = server_configs

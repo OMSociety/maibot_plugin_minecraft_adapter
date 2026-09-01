@@ -170,6 +170,11 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         # 解析服务器配置
         for server_model in self.config.mc_servers:
             config = ServerConfig.from_dict(server_model.model_dump())
+            if not config.enabled:
+                logger.info(
+                    f"[MC Adapter] 跳过已禁用的服务器: {config.server_id or '未命名'}"
+                )
+                continue
             if not config.server_id:
                 logger.warning("[MC Adapter] 跳过 ID 为空的服务器")
                 continue
@@ -308,7 +313,12 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         await self._send_result(result, ctx.stream_id)
         return True, "帮助已发送", 2
 
-    @Command("mc_sid", description="查看可用的会话 stream_id", pattern=r"^/mc\s+sid$")
+    @Command(
+        "mc_sid",
+        description="查看可用的会话 stream_id",
+        pattern=r"^/mc\s+sid$",
+        permission="operator",
+    )
     async def handle_mc_sid(self, **kwargs):
         stream_id = str(kwargs.get("stream_id", "") or "")
         try:
