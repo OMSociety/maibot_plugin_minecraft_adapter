@@ -112,7 +112,7 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 >
 > 💡 **自定义指令受白名单约束**：`custom_cmd_list` 里映射出的实际指令名（如 `tp`/`give`）必须同时加入 `cmd_list` 白名单才会生效。
 
-**快速配置模板（单个服务器，字段已拍平）：**
+**快速配置模板（单个服务器）：**
 
 ```json
 {

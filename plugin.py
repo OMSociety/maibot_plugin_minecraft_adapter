@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 class McServerConfig(PluginConfigBase):
-    """单个 MC 服务器（扁平配置，字段与 core.models.ServerConfig 对齐）"""
+    """单个 MC 服务器"""
 
     __ui_label__ = "MC 服务器"
 
@@ -99,7 +99,7 @@ class McServerConfig(PluginConfigBase):
 
 
 class PluginBaseConfig(PluginConfigBase):
-    """插件基础配置（MaiBot 运行时要求的 [plugin] 配置节）"""
+    """插件基础配置"""
 
     __ui_label__ = "插件基础设置"
 
