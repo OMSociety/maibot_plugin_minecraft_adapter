@@ -220,6 +220,11 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         runtime_dir = self.ctx.paths.runtime_dir
         data_dir.mkdir(parents=True, exist_ok=True)
 
+        # 设置消息处理器（必须在 add_server 之前，否则 ServerConnection 拿到的 on_message 是 None，消息永远不转发）
+        self.server_manager.set_message_handler(self._on_server_message)
+        self.server_manager.set_connect_handler(self._on_server_connect)
+        self.server_manager.set_disconnect_handler(self._on_server_disconnect)
+
         # 解析服务器配置
         for server_model in self.config.general.mc_servers:
             config = ServerConfig.from_dict(server_model.model_dump())
@@ -264,11 +269,6 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
                 self.command_handler.register_custom_commands(
                     server_id, config.custom_cmd_list
                 )
-
-        # 设置消息处理器
-        self.server_manager.set_message_handler(self._on_server_message)
-        self.server_manager.set_connect_handler(self._on_server_connect)
-        self.server_manager.set_disconnect_handler(self._on_server_disconnect)
 
         # 启动服务器连接
         if self.config.general.enabled:
