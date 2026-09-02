@@ -6,7 +6,7 @@
 
 **连接 Minecraft 服务器与 MaiBot** —— 游戏内 AI 聊天 · 跨平台消息互通 · 服务器远程管理
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter)
 [![MaiBot](https://img.shields.io/badge/MaiBot-%E2%89%A51.0-green.svg)](https://github.com/Mai-with-u/MaiBot)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/OMSociety/maibot_plugin_minecraft_adapter)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/stargazers)
