@@ -66,6 +66,16 @@ class WebSocketClient:
     def ws_url(self) -> str:
         return f"ws://{self.host}:{self.port}/ws?token={self.token}"
 
+    def _redact(self, text: str) -> str:
+        """把日志/异常文本里的认证 Token 替换成 ***，避免泄漏。
+
+        认证 Token 通过 URL query 传给 AstrBotAdapter（服务端协议只认 query），
+        异常消息可能携带含 Token 的 URL，打印前必须脱敏。
+        """
+        if not self.token:
+            return str(text)
+        return str(text).replace(self.token, "***")
+
     async def connect(self) -> bool:
         """建立 WebSocket 连接"""
         if self._connected:
@@ -109,7 +119,7 @@ class WebSocketClient:
             logger.error(f"[MC-{self.server_id}] 连接超时")
             return False
         except Exception as e:
-            logger.error(f"[MC-{self.server_id}] 连接失败: {e}")
+            logger.error(f"[MC-{self.server_id}] 连接失败: {self._redact(str(e))}")
             return False
 
     async def disconnect(self):
@@ -262,7 +272,7 @@ class WebSocketClient:
             await self._ws.send_json(data)
             return True
         except Exception as e:
-            logger.error(f"[MC-{self.server_id}] 发送错误: {e}")
+            logger.error(f"[MC-{self.server_id}] 发送错误: {self._redact(str(e))}")
             return False
 
     async def send_message(self, msg: MCMessage) -> bool:

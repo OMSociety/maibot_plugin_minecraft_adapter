@@ -29,7 +29,7 @@ from maibot_sdk.types import HookMode, HookOrder
 
 from .core.models import MCMessage, MessageType, ServerConfig, ServerInfo
 from .core.server_manager import ServerManager
-from .handlers.commands import CommandContext, CommandHandler
+from .handlers.commands import CommandContext, CommandHandler, is_operator_match
 from .services.ai_chat import AIChatService
 from .services.message_bridge import MessageBridge
 from .services.renderer import InfoRenderer, RenderResult
@@ -72,7 +72,10 @@ class McServerConfig(PluginConfigBase):
     token: str = Field(
         default="",
         description="认证 Token（从 AstrBotAdapter 配置获取）",
-        json_schema_extra={"label": "认证 Token", "placeholder": "AstrBotAdapter 的 token"},
+        json_schema_extra={
+            "label": "认证 Token",
+            "placeholder": "AstrBotAdapter 的 token",
+        },
     )
     # AI 对话 / 渲染
     enable_ai_chat: bool = Field(
@@ -263,6 +266,7 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
             server_manager=self.server_manager,
             renderer=self.renderer,
             get_server_config=lambda sid: self._server_configs.get(sid),
+            is_operator=self._is_operator,
         )
         for server_id, config in self._server_configs.items():
             if config.custom_cmd_list:
@@ -351,6 +355,20 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
             platform=str(kwargs.get("platform", "") or ""),
             user_id=str(kwargs.get("user_id", "") or ""),
         )
+
+    async def _is_operator(self, platform: str, user_id: str) -> bool:
+        """判断发送者是否命中宿主操作员列表（`[plugin].permission`）。
+
+        自定义指令与 `/mc cmd` 一致，收窄为仅操作员可触发，防止
+        `cmd_white_black_list` 放宽后目标会话内任意用户越权执行远程指令。
+        """
+        if not platform or not user_id:
+            return False
+        try:
+            perms = await self.ctx.config.get("plugin.permission") or []
+            return is_operator_match(perms, platform, user_id)
+        except Exception:
+            return False
 
     # ── @Command：mc 命令组 ─────────────────────────────
 

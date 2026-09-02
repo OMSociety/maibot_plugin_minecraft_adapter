@@ -51,6 +51,12 @@ class RestClient:
             "Content-Type": "application/json",
         }
 
+    def _redact(self, text: str) -> str:
+        """把异常文本里的认证 Token 替换成 ***，避免泄漏。"""
+        if not self.token:
+            return str(text)
+        return str(text).replace(self.token, "***")
+
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession()
@@ -92,7 +98,7 @@ class RestClient:
             logger.error(f"[MC-{self.server_id}] 请求超时")
             return ApiResponse(code=3002, message="请求超时")
         except Exception as e:
-            logger.error(f"[MC-{self.server_id}] 请求错误: {e}")
+            logger.error(f"[MC-{self.server_id}] 请求错误: {self._redact(str(e))}")
             return ApiResponse(code=3001, message=str(e))
 
     async def _get(self, endpoint: str, params: dict | None = None) -> ApiResponse:

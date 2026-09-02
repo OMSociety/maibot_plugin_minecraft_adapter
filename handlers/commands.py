@@ -8,6 +8,7 @@
 import logging
 import re
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -19,6 +20,32 @@ if TYPE_CHECKING:
     from ..services.renderer import InfoRenderer
 
 logger = logging.getLogger(__name__)
+
+
+def is_operator_match(permission_list: Any, platform: str, user_id: str) -> bool:
+    """判断 `platform:user_id` 是否命中操作员列表（宿主 `[plugin].permission`）。
+
+    与 MaiBot 操作员口径一致：平台名小写、用户 ID 保留原样（见经验 36/53）。
+    列表条目形如 `qq:123456`（`平台:裸ID`）；无冒号条目按默认平台 `qq` 解释。
+    """
+    if not platform or not user_id:
+        return False
+    if not isinstance(permission_list, (list, tuple)):
+        permission_list = []
+    scoped = f"{platform.lower()}:{user_id}"
+    for entry in permission_list:
+        entry = str(entry or "").strip()
+        if not entry:
+            continue
+        if ":" in entry:
+            p, uid = entry.split(":", 1)
+            if f"{p.lower()}:{uid}" == scoped:
+                return True
+        else:
+            # 无冒号：按默认平台 qq 解释（见经验 53）
+            if platform.lower() == "qq" and entry == user_id:
+                return True
+    return False
 
 
 @dataclass
@@ -159,10 +186,12 @@ class CommandHandler:
         server_manager: "ServerManager",
         renderer: "InfoRenderer",
         get_server_config,
+        is_operator: Callable[[str, str], Awaitable[bool]] | None = None,
     ):
         self.server_manager = server_manager
         self.renderer = renderer
         self.get_server_config = get_server_config
+        self._is_operator = is_operator
         self._custom_parsers: dict[str, CustomCommandParser] = {}
         # Pending actions per stream_id
         self._pending_actions: dict[str, PendingAction] = {}
@@ -272,6 +301,15 @@ class CommandHandler:
                 # 自定义指令同样受白名单约束（与 /mc cmd 一致）
                 if not self._check_command_allowed(command, config):
                     continue
+                # 自定义指令收窄为仅操作员可触发（与 /mc cmd 一致），
+                # 堵住 cmd_white_black_list 放宽后目标会话内任意用户越权执行远程指令。
+                if self._is_operator is not None and not await self._is_operator(
+                    ctx.platform, ctx.user_id
+                ):
+                    return RenderResult(
+                        "❌ 自定义指令仅操作员可触发，请先在 [plugin].permission 配置操作员",
+                        is_image=False,
+                    )
                 matched_command = command
                 server = self.server_manager.get_server(server_id)
                 if not server or not server.connected:

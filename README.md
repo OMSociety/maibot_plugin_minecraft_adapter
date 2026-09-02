@@ -6,7 +6,7 @@
 
 **连接 Minecraft 服务器与 MaiBot** —— 游戏内 AI 聊天 · 跨平台消息互通 · 服务器远程管理
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter)
 [![MaiBot](https://img.shields.io/badge/MaiBot-%E2%89%A51.0-green.svg)](https://github.com/Mai-with-u/MaiBot)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/OMSociety/maibot_plugin_minecraft_adapter)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/stargazers)
@@ -48,7 +48,7 @@
 `/mc status` / `/mc list` / `/mc player` 查询服务器状态、在线玩家、玩家详情，默认渲染为精美图片卡片；`/mc cmd` 远程执行指令（白名单 + 操作员级双重校验）。
 
 ### 🛡️ 指令安全
-远程指令默认白名单（`["say","list","weather","time"]`），`/mc cmd` 标记为操作员级命令，只有配置了 operator 权限的用户能执行。
+远程指令默认白名单（`["say","list","weather","time"]`），`/mc cmd` **和自定义指令**均为操作员级命令，只有配置了 operator 权限的用户能执行。
 
 ---
 
@@ -104,13 +104,13 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | 远程指令 | `cmd_enabled` | bool | `true` | 远程指令总开关 |
 | 远程指令 | `cmd_white_black_list` | string | `"white"` | white/black/none |
 | 远程指令 | `cmd_list` | list | `["say","list","weather","time"]` | 指令名单 |
-| 远程指令 | `custom_cmd_list` | list | `[]` | 自定义指令映射（实际指令名需在白名单内） |
+| 远程指令 | `custom_cmd_list` | list | `[]` | 自定义指令映射（实际指令名需在白名单内；仅操作员可触发） |
 
 > 💡 **`/mc cmd` 为操作员级命令**：需在 MaiBot 的 `[plugin].permission` 配置操作员列表（如 `qq:123456789`）后才能执行。
 >
 > 💡 **目标会话用 Session ID**：`target_sessions` 填的是 MaiBot 给每个群/私聊分配的唯一 **Session ID**（重启不变，在 MaiBot WebUI「**聊天管理**」点开会话详情查看），**不是用户 ID、也不是 AstrBot 的 UMO**。
 >
-> 💡 **自定义指令受白名单约束**：`custom_cmd_list` 里映射出的实际指令名（如 `tp`/`give`）必须同时加入 `cmd_list` 白名单才会生效。
+> 💡 **自定义指令为操作员级**：`custom_cmd_list` 与 `/mc cmd` 一样**仅操作员可触发**（需在 `[plugin].permission` 配置操作员，格式 `平台:裸ID`）。映射出的实际指令名（如 `tp`/`give`）须同时加入 `cmd_list` 白名单；**黑白名单只约束命令名（第一个词），不约束参数**——`say`/`execute` 这类"参数即效果"的指令要靠操作员鉴权兜底。
 
 **快速配置模板（单个服务器）：**
 
