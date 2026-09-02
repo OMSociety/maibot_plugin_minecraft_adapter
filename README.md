@@ -71,8 +71,6 @@
 git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugins/maibot_plugin_minecraft_adapter
 ```
 
-> 💡 插件依赖（aiohttp / Pillow）在 `_manifest.json` 中声明，MaiBot 启动时自动安装。
-
 ### 第三步：配置
 
 1. 在插件配置里添加一个 MC 服务器，填 `server_id` / `host` / `port` / `token`
