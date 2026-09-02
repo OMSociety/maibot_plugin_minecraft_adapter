@@ -168,8 +168,8 @@ A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` �
 **Q：自定义指令为什么不生效？**
 A：自定义指令映射出的实际指令名（如 `tp`/`give`）受 `cmd_list` 白名单约束，需把指令名加入白名单（或把 `cmd_white_black_list` 设为 `none`）才会执行。
 
-**Q：换平台适配器（如 QQ 官方）也能用吗？**
-A：能。目标会话用 Session ID 而非平台专用群号，任何适配器（napcat / QQ 官方 / telegram）都通用。
+**Q：换别的平台适配器也能用吗？**
+A：能。目标会话用 Session ID 而非平台专用群号，任何适配器（napcat / telegram 等）都通用。
 
 **Q：首次渲染卡片会访问哪些外部资源？**
 A：首次渲染会从第三方镜像下载字体，并访问 Mojang API / 头像 CDN 获取玩家头像，之后走本地缓存。
