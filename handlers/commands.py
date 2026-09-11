@@ -393,11 +393,15 @@ class CommandHandler:
             for s in capable_servers
         )
 
-        section = "\n\n群友绑定:\n    /mc bind <游戏ID> - 绑定游戏 ID 并加入白名单"
+        section = (
+            "\n\n群友绑定:\n    /mc bind <游戏ID> - 绑定 Java 版游戏 ID 并加入白名单"
+        )
         if geyser_ok:
             section += "\n    /mc geyserbind <基岩版ID> - 绑定基岩版 ID（Floodgate）"
-        section += "\n    /mc unbind - 解除绑定并移出白名单"
-        section += "\n    /mc mybind - 查看自己的绑定"
+        section += "\n    /mc mybind - 查看自己的绑定（Java 版与基岩版各一条）"
+        section += "\n    /mc unbind - 解除全部绑定并移出白名单"
+        if geyser_ok:
+            section += "\n    /mc geyserunbind - 只解除基岩版绑定，保留 Java 版"
         return section
 
     async def handle_status(self, ctx: CommandContext) -> RenderResult:
@@ -1177,7 +1181,14 @@ class BindingHandler:
         return "\n".join(lines)
 
     async def handle_unbind(self, ctx: CommandContext) -> RenderResult:
-        """解除当前账号的绑定。"""
+        """解除当前账号的**全部**绑定（Java 与基岩都清）。"""
+        return await self._unbind(ctx, kind="all")
+
+    async def handle_geyserunbind(self, ctx: CommandContext) -> RenderResult:
+        """只解除基岩版绑定，保留 Java 版绑定。"""
+        return await self._unbind(ctx, kind="geyser")
+
+    async def _unbind(self, ctx: CommandContext, kind: str) -> RenderResult:
         server, message = self._target_server(ctx.stream_id, bedrock=False)
         if not server:
             return RenderResult(message, is_image=False)
@@ -1190,7 +1201,7 @@ class BindingHandler:
             return RenderResult(BIND_MSG_UNBIND_DISABLED, is_image=False)
 
         ok, data, code, err = await server.rest_client.unbind_player(
-            platform=ctx.platform, user_id=ctx.user_id
+            platform=ctx.platform, user_id=ctx.user_id, kind=kind
         )
         return RenderResult(
             self._format_unbind_result(ok, data, code, err), is_image=False
@@ -1200,6 +1211,21 @@ class BindingHandler:
     def _format_unbind_result(ok: bool, data: dict, code: int, err: str) -> str:
         if not ok:
             return BindingHandler._error_message(code, err)
+
+        removed = data.get("removed") or []
+        if removed:
+            lines = ["✅ 已解除绑定："]
+            for item in removed:
+                lines.append(
+                    f"· {BindingHandler._kind_label(str(item.get('kind') or ''))}"
+                    f"：{item.get('gameName') or ''}"
+                )
+            lines.append(
+                "已从白名单移除"
+                if bool(data.get("whitelistRemoved"))
+                else "白名单未变更"
+            )
+            return "\n".join(lines)
 
         name = str(data.get("gameName") or "")
         lines = [f"✅ 已解除绑定：{name}" if name else "✅ 已解除绑定"]
@@ -1226,7 +1252,28 @@ class BindingHandler:
         )
 
     @staticmethod
+    def _kind_label(kind: str) -> str:
+        """绑定类型的用户可读名。"""
+        return "基岩版" if kind == "geyser" else "Java 版"
+
+    @staticmethod
     def _format_lookup_result(ok: bool, data: dict, code: int, err: str) -> str:
+        # 先看 bindings：只绑了基岩版时服务端仍返回 4004（没有 Java 版绑定），
+        # 但 bindings 里有内容，这种情况下不能误报「未绑定」。
+        bindings = data.get("bindings")
+        if isinstance(bindings, list) and bindings:
+            lines = ["✅ 你的绑定："]
+            for item in bindings:
+                if not isinstance(item, dict):
+                    continue
+                kind = str(item.get("kind") or "")
+                name = str(item.get("gameName") or "")
+                suffix = "（Floodgate）" if bool(item.get("floodgate")) else ""
+                lines.append(f"· {BindingHandler._kind_label(kind)}：{name}{suffix}")
+                if not bool(item.get("whitelistAdded")):
+                    lines.append("  ⚠️ 尚未写入白名单，可重新绑定或联系服主")
+            return "\n".join(lines)
+
         if not ok:
             # 4004 = 尚未绑定，属于正常状态而非错误
             if code == 4004:
@@ -1234,6 +1281,7 @@ class BindingHandler:
             return BindingHandler._error_message(code, err)
 
         if not data.get("bound"):
+            # 旧模组（无 bindings 数组）兼容路径：Java 版未绑定即视为未绑定
             return BIND_MSG_NOT_BOUND
 
         name = str(data.get("gameName") or "")

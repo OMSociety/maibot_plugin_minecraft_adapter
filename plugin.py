@@ -499,7 +499,7 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
 
     @Command(
         "mc_unbind",
-        description="解除 QQ 账号与游戏 ID 的绑定",
+        description="解除 QQ 账号的全部游戏 ID 绑定",
         pattern=r"^/mc\s+unbind$",
     )
     async def handle_mc_unbind(self, **kwargs):
@@ -507,6 +507,19 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
             return False, "未初始化", 1
         ctx = self._build_context(kwargs)
         result = await self.binding_handler.handle_unbind(ctx)
+        await self._send_result(result, ctx.stream_id)
+        return True, "解绑结果已发送", 2
+
+    @Command(
+        "mc_geyserunbind",
+        description="只解除基岩版绑定，保留 Java 版绑定",
+        pattern=r"^/mc\s+geyserunbind$",
+    )
+    async def handle_mc_geyserunbind(self, **kwargs):
+        if not self.binding_handler:
+            return False, "未初始化", 1
+        ctx = self._build_context(kwargs)
+        result = await self.binding_handler.handle_geyserunbind(ctx)
         await self._send_result(result, ctx.stream_id)
         return True, "解绑结果已发送", 2
 

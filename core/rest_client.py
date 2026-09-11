@@ -337,16 +337,19 @@ class RestClient:
         return False, {}, resp.code, self._binding_message(resp, "绑定失败")
 
     async def unbind_player(
-        self, platform: str, user_id: str
+        self, platform: str, user_id: str, kind: str = "all"
     ) -> tuple[bool, dict, int, str]:
         """解除外部平台账号与游戏 ID 的绑定（并尝试移出白名单）。
+
+        参数:
+            kind: 只解某一类绑定（``java`` / ``geyser``）；默认 ``all`` 清空该账号全部绑定。
 
         返回:
             tuple: (是否成功, 响应 data, 服务端错误码, 错误消息)
         """
         resp = await self._post(
             "/bindings/unbind",
-            json_data={"platform": platform, "userId": user_id},
+            json_data={"platform": platform, "userId": user_id, "kind": kind},
         )
         if resp.success:
             return True, resp.data or {}, 0, ""

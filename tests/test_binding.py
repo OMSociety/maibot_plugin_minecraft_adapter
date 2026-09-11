@@ -81,8 +81,33 @@ def _make_server(supports_binding: bool = True, connected: bool = True):
     server.rest_client.unbind_player = AsyncMock(
         return_value=(True, {"gameName": "Steve", "unbound": True}, 0, "")
     )
+    # 新版服务端：一个账号可同时有 Java 版与基岩版两条绑定
     server.rest_client.lookup_binding = AsyncMock(
-        return_value=(True, {"bound": True, "gameName": "Steve"}, 0, "")
+        return_value=(
+            True,
+            {
+                "bound": True,
+                "gameName": "Steve",
+                "javaBound": True,
+                "geyserBound": True,
+                "bindings": [
+                    {
+                        "kind": "java",
+                        "gameName": "Steve",
+                        "floodgate": False,
+                        "whitelistAdded": True,
+                    },
+                    {
+                        "kind": "geyser",
+                        "gameName": ".SteveBE",
+                        "floodgate": True,
+                        "whitelistAdded": True,
+                    },
+                ],
+            },
+            0,
+            "",
+        )
     )
     return server
 
@@ -309,6 +334,129 @@ def test_mybind_unbound_flag():
     handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
     result = asyncio.run(handler.handle_mybind(CONTEXT))
     assert result.text == BIND_MSG_NOT_BOUND
+
+
+def test_mybind_shows_both_java_and_geyser():
+    """同一账号的两条绑定必须同时展示，不能只显示一条。"""
+    server = _make_server()
+    handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
+    result = asyncio.run(handler.handle_mybind(CONTEXT))
+    assert "Steve" in result.text
+    assert ".SteveBE" in result.text
+    assert "Java 版" in result.text
+    assert "基岩版" in result.text
+    assert USER_ID not in result.text
+
+
+def test_mybind_only_geyser_binding_is_shown():
+    """只绑了基岩版时也要能显示出来（旧逻辑会因 Java 未绑定而误报未绑定）。"""
+    server = _make_server()
+    server.rest_client.lookup_binding = AsyncMock(
+        return_value=(
+            False,
+            {
+                "bound": False,
+                "gameName": "",
+                "javaBound": False,
+                "geyserBound": True,
+                "bindings": [
+                    {
+                        "kind": "geyser",
+                        "gameName": ".OnlyBE",
+                        "floodgate": True,
+                        "whitelistAdded": True,
+                    }
+                ],
+            },
+            4004,
+            "尚未绑定",
+        )
+    )
+    handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
+    result = asyncio.run(handler.handle_mybind(CONTEXT))
+    assert ".OnlyBE" in result.text
+    assert "基岩版" in result.text
+
+
+def test_mybind_falls_back_for_old_mod_without_bindings_array():
+    """连接旧模组（响应无 bindings 数组）时回退到旧的单条展示。"""
+    server = _make_server()
+    server.rest_client.lookup_binding = AsyncMock(
+        return_value=(
+            True,
+            {"bound": True, "gameName": "Legacy", "floodgate": False},
+            0,
+            "",
+        )
+    )
+    handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
+    result = asyncio.run(handler.handle_mybind(CONTEXT))
+    assert "Legacy" in result.text
+
+
+def test_unbind_defaults_to_all_kinds():
+    """/mc unbind 清空该账号全部绑定。"""
+    server = _make_server()
+    handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
+    asyncio.run(handler.handle_unbind(CONTEXT))
+    assert server.rest_client.unbind_player.await_args.kwargs["kind"] == "all"
+
+
+def test_geyserunbind_only_targets_geyser():
+    """/mc geyserunbind 只解基岩版那条，Java 版不受影响。"""
+    server = _make_server()
+    server.rest_client.unbind_player = AsyncMock(
+        return_value=(
+            True,
+            {
+                "unbound": True,
+                "whitelistRemoved": True,
+                "removed": [
+                    {
+                        "kind": "geyser",
+                        "gameName": ".SteveBE",
+                        "whitelistRemoved": True,
+                    }
+                ],
+            },
+            0,
+            "",
+        )
+    )
+    handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
+    result = asyncio.run(handler.handle_geyserunbind(CONTEXT))
+    assert server.rest_client.unbind_player.await_args.kwargs["kind"] == "geyser"
+    assert ".SteveBE" in result.text
+    assert "基岩版" in result.text
+    assert USER_ID not in result.text
+
+
+def test_unbind_reports_both_removed():
+    """清空全部绑定时逐条回报被移除的记录。"""
+    server = _make_server()
+    server.rest_client.unbind_player = AsyncMock(
+        return_value=(
+            True,
+            {
+                "unbound": True,
+                "whitelistRemoved": True,
+                "removed": [
+                    {"kind": "java", "gameName": "Steve", "whitelistRemoved": True},
+                    {
+                        "kind": "geyser",
+                        "gameName": ".SteveBE",
+                        "whitelistRemoved": True,
+                    },
+                ],
+            },
+            0,
+            "",
+        )
+    )
+    handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
+    result = asyncio.run(handler.handle_unbind(CONTEXT))
+    assert "Steve" in result.text
+    assert ".SteveBE" in result.text
 
 
 def test_unbind_success():
