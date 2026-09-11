@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.1] - 2026-09-12
+
+### 🐛 修复
+- 区分「服务端模组未开启绑定」与「服务端模组不支持绑定」这两种情况。此前服务端返回 `4003`（`binding.enabled=false`，即模组支持绑定但没开启）时会被提示成「该服务器模组不支持绑定功能，请升级到 AstrBotAdapter_NeoForge」——实际使用中会把用户引去升级一个并不缺功能的模组。现在会直接给出开启步骤：修改服务端 `config/astrbotadapter/config.yml` 的 `binding.enabled` 为 `true` 后执行 `/astrbot reload`。
+
+---
+
 ## [1.2.0] - 2026-09-11
 
 ### ✨ 新增
