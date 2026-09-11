@@ -18,7 +18,7 @@
 
 > 🎨 本项目由 AstrBot 插件 [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 迁移而来，改为 MaiBot 插件。
 >
-> 孪生项目（MC 服务端插件）：[AstrBot Adapter](https://github.com/railgun19457/AstrBotAdapter)（Bukkit/Paper/Folia/Velocity）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)
+> 孪生项目（MC 服务端模组）：[AstrBotAdapter_Forge_Forward](https://github.com/OMSociety/AstrBotAdapter_Forge_Forward)（Forge 1.20.1 + NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
 
 ---
 
@@ -71,7 +71,7 @@
 
 ### 第一步：准备 MC 服务端插件
 
-1. 在 MC 服务器上安装 **AstrBotAdapter**（或 AstrBotAdapter_Forge）服务端插件
+1. 在 MC 服务器上安装 **AstrBotAdapter_Forge_Forward**（推荐，支持绑定白名单）；旧的 AstrBotAdapter_Forge v1.0.0 也能连，只是没有绑定功能
 2. 在 MC 端配置服务器端口（默认 8765）与认证 Token
 
 ### 第二步：在 MaiBot 安装
