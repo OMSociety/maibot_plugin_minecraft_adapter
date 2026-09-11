@@ -1016,7 +1016,7 @@ BIND_MSG_GEYSER_DISABLED = "❌ 本服务器未启用基岩版绑定功能"
 BIND_MSG_UNBIND_DISABLED = "❌ 本服务器未启用解绑功能"
 BIND_MSG_PROBE_FAILED = "❌ 无法确认服务器绑定能力，请检查模组版本与连接"
 BIND_MSG_UNSUPPORTED = (
-    "❌ 该服务器模组不支持绑定功能，请升级到 AstrBotAdapter_NeoForge（v1.1.0+）"
+    "❌ 该服务器模组不支持绑定功能，请升级到 AstrBotAdapter_NeoForge（v1.2.0+）"
 )
 BIND_MSG_MOD_DISABLED = (
     "❌ 服务端模组尚未开启绑定功能：请在服务器 config/astrbotadapter/config.yml 里把 "

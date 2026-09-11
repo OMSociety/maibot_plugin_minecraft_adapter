@@ -290,7 +290,7 @@ class RestClient:
             return logs, ""
         return [], resp.message
 
-    # 绑定 APIs（AstrBotAdapter_NeoForge v1.1.0+，需先探测 binding.v1 能力）
+    # 绑定 APIs（AstrBotAdapter_NeoForge v1.2.0+，需先探测 binding.v1 能力）
 
     def _binding_message(self, resp: ApiResponse, fallback: str) -> str:
         """整理绑定接口的错误文本（脱敏，避免把 Token 带进回复/日志）。"""

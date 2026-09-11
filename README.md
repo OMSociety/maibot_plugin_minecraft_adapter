@@ -6,7 +6,7 @@
 
 **连接 Minecraft 服务器与 MaiBot** —— 游戏内 AI 聊天 · 跨平台消息互通 · 服务器远程管理
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter)
+[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter)
 [![MaiBot](https://img.shields.io/badge/MaiBot-%E2%89%A51.0-green.svg)](https://github.com/Mai-with-u/MaiBot)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/OMSociety/maibot_plugin_minecraft_adapter)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/stargazers)
@@ -30,7 +30,7 @@
 | 🔁 **消息互通** | MC 服务器 ↔ 外部群/私聊双向转发，支持自定义格式与进出提示 |
 | 🖥️ **服务器管理** | 状态查询 / 在线玩家 / 玩家详情 / 远程指令，信息可渲染为图片 |
 | 🛡️ **指令安全** | 远程指令与自定义指令均支持白名单/黑名单，`/mc cmd` 为操作员级命令 |
-| 🔗 **群友绑定** | 群成员自助把 QQ 绑定到游戏 ID，服务端自动写入白名单；Java 版与基岩版可各绑一条（需模组 AstrBotAdapter_NeoForge v1.1.0+） |
+| 🔗 **群友绑定** | 群成员自助把 QQ 绑定到游戏 ID，服务端自动写入白名单；Java 版与基岩版可各绑一条（需模组 AstrBotAdapter_NeoForge v1.2.0+） |
 
 ---
 
@@ -63,7 +63,7 @@
 绑定按「平台 + 用户 ID + 绑定类型」记账，任何人只能操作自己的绑定；回复里不会出现他人 QQ 号。
 **同一个群友可以同时绑定 Java 版与基岩版各一条**，两条白名单条目并存，可分别更换或解除。
 
-> ⚠️ **双版本兼容**：绑定功能依赖服务端模组的能力声明（`binding.v1`），**需要 AstrBotAdapter_NeoForge v1.1.0+**。插件在每次连接建立时自动探测能力，不依赖版本号：
+> ⚠️ **双版本兼容**：绑定功能依赖服务端模组的能力声明（`binding.v1`），**需要 AstrBotAdapter_NeoForge v1.2.0+**。插件在每次连接建立时自动探测能力，不依赖版本号：
 > - 旧版 **AstrBotAdapter_Forge（v1.0.0）** 没有该能力 → 绑定命令会明确提示需要升级模组，`/mc help` 也不会列出绑定命令，**其余功能（AI 聊天、消息互通、状态查询、远程指令）完全不受影响**；
 > - 能力探测失败（服务不可达/响应异常）时按「不支持」处理，同样只是拒绝绑定，不会影响连接与其它命令。
 > - 「Java 版与基岩版双绑定」由 AstrBotAdapter_NeoForge 提供；连接能力更少、不支持双绑定的旧服务端模组时，`/mc mybind` 会回退为单条展示，其余绑定功能仍可用。
@@ -179,7 +179,7 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 
 > 💡 **多服务器选择**：当前会话关联多个服务器时，需要区分目标的指令会显示服务器列表，发送编号选择目标。
 
-> 💡 **绑定命令与模组版本**：绑定类命令仅在服务端模组声明 `binding.v1` 能力时可用（AstrBotAdapter_NeoForge v1.1.0+）；连接旧版 AstrBotAdapter_Forge 时命令会提示升级模组，`/mc help` 中也不会列出这几条命令。
+> 💡 **绑定命令与模组版本**：绑定类命令仅在服务端模组声明 `binding.v1` 能力时可用（AstrBotAdapter_NeoForge v1.2.0+）；连接旧版 AstrBotAdapter_Forge 时命令会提示升级模组，`/mc help` 中也不会列出这几条命令。
 
 ---
 
@@ -200,7 +200,7 @@ A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` �
 A：自定义指令映射出的实际指令名（如 `tp`/`give`）受 `cmd_list` 白名单约束，需把指令名加入白名单（或把 `cmd_white_black_list` 设为 `none`）才会执行。
 
 **Q：绑定命令提示「该服务器模组不支持绑定功能」？**
-A：这是**能力探测**的结果，不是连接故障：绑定需要服务端模组 **AstrBotAdapter_NeoForge v1.1.0+**（声明 `binding.v1` 能力）。请把服务端模组升级到该版本；升级前其它功能照常可用。
+A：这是**能力探测**的结果，不是连接故障：绑定需要服务端模组 **AstrBotAdapter_NeoForge v1.2.0+**（声明 `binding.v1` 能力）。请把服务端模组升级到该版本；升级前其它功能照常可用。
 
 **Q：`/mc bind` 提示「白名单写入失败」？**
 A：服务端 `server.properties` 里的 `white-list` / `enforce-whitelist` 未开启时，模组无法把游戏 ID 写入白名单，请服主开启后重试。

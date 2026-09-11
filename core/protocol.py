@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
-# 绑定与白名单写入能力（AstrBotAdapter_NeoForge v1.1.0+）
+# 绑定与白名单写入能力（AstrBotAdapter_NeoForge v1.2.0+）
 FEATURE_BINDING = "binding.v1"
 
 
