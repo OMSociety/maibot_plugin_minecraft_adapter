@@ -1,6 +1,6 @@
 """协议能力协商（capability negotiation）。
 
-服务端（AstrBotAdapter_Forge / AstrBotAdapter_Forge_Forward）通过
+服务端（AstrBotAdapter_Forge / AstrBotAdapter_NeoForge）通过
 `GET /api/v1/health` 的 `data.protocolVersion` 与 `data.features` 暴露自身能力；
 协议文档要求客户端**运行时探测能力**，而不是假设插件版本号。
 
@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
-# 绑定与白名单写入能力（AstrBotAdapter_Forge_Forward v1.1.0+）
+# 绑定与白名单写入能力（AstrBotAdapter_NeoForge v1.1.0+）
 FEATURE_BINDING = "binding.v1"
 
 

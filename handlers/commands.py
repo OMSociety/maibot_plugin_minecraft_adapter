@@ -1012,7 +1012,7 @@ BIND_MSG_GEYSER_DISABLED = "❌ 本服务器未启用基岩版绑定功能"
 BIND_MSG_UNBIND_DISABLED = "❌ 本服务器未启用解绑功能"
 BIND_MSG_PROBE_FAILED = "❌ 无法确认服务器绑定能力，请检查模组版本与连接"
 BIND_MSG_UNSUPPORTED = (
-    "❌ 该服务器模组不支持绑定功能，请升级到 AstrBotAdapter_Forge_Forward（v1.1.0+）"
+    "❌ 该服务器模组不支持绑定功能，请升级到 AstrBotAdapter_NeoForge（v1.1.0+）"
 )
 BIND_MSG_INVALID_NAME = "❌ 游戏 ID 只能包含字母、数字、下划线、点号或中文，长度 1–32"
 BIND_MSG_NAME_TAKEN = "❌ 该游戏 ID 已被其他账号绑定"

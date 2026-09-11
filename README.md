@@ -18,7 +18,7 @@
 
 > 🎨 本项目由 AstrBot 插件 [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 迁移而来，改为 MaiBot 插件。
 >
-> 孪生项目（MC 服务端模组）：[AstrBotAdapter_Forge_Forward](https://github.com/OMSociety/AstrBotAdapter_Forge_Forward)（Forge 1.20.1 + NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
+> 孪生项目（MC 服务端模组）：[AstrBotAdapter_NeoForge](https://github.com/OMSociety/AstrBotAdapter_NeoForge)（Forge 1.20.1 + NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
 
 ---
 
@@ -61,7 +61,7 @@
 
 绑定按「平台 + 用户 ID」记账，任何人只能操作自己的绑定；回复里不会出现他人 QQ 号。
 
-> ⚠️ **双版本兼容**：绑定功能依赖服务端模组的能力声明（`binding.v1`），**需要 AstrBotAdapter_Forge_Forward v1.1.0+**。插件在每次连接建立时自动探测能力，不依赖版本号：
+> ⚠️ **双版本兼容**：绑定功能依赖服务端模组的能力声明（`binding.v1`），**需要 AstrBotAdapter_NeoForge v1.1.0+**。插件在每次连接建立时自动探测能力，不依赖版本号：
 > - 旧版 **AstrBotAdapter_Forge（v1.0.0）** 没有该能力 → 绑定命令会明确提示需要升级模组，`/mc help` 也不会列出绑定命令，**其余功能（AI 聊天、消息互通、状态查询、远程指令）完全不受影响**；
 > - 能力探测失败（服务不可达/响应异常）时按「不支持」处理，同样只是拒绝绑定，不会影响连接与其它命令。
 
@@ -71,7 +71,7 @@
 
 ### 第一步：准备 MC 服务端插件
 
-1. 在 MC 服务器上安装 **AstrBotAdapter_Forge_Forward**（推荐，支持绑定白名单）；旧的 AstrBotAdapter_Forge v1.0.0 也能连，只是没有绑定功能
+1. 在 MC 服务器上安装 **AstrBotAdapter_NeoForge**（推荐，支持绑定白名单）；旧的 AstrBotAdapter_Forge v1.0.0 也能连，只是没有绑定功能
 2. 在 MC 端配置服务器端口（默认 8765）与认证 Token
 
 ### 第二步：在 MaiBot 安装
@@ -175,7 +175,7 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 
 > 💡 **多服务器选择**：当前会话关联多个服务器时，需要区分目标的指令会显示服务器列表，发送编号选择目标。
 
-> 💡 **绑定命令与模组版本**：绑定类命令仅在服务端模组声明 `binding.v1` 能力时可用（AstrBotAdapter_Forge_Forward v1.1.0+）；连接旧版 AstrBotAdapter_Forge 时命令会提示升级模组，`/mc help` 中也不会列出这几条命令。
+> 💡 **绑定命令与模组版本**：绑定类命令仅在服务端模组声明 `binding.v1` 能力时可用（AstrBotAdapter_NeoForge v1.1.0+）；连接旧版 AstrBotAdapter_Forge 时命令会提示升级模组，`/mc help` 中也不会列出这几条命令。
 
 ---
 
@@ -196,7 +196,7 @@ A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` �
 A：自定义指令映射出的实际指令名（如 `tp`/`give`）受 `cmd_list` 白名单约束，需把指令名加入白名单（或把 `cmd_white_black_list` 设为 `none`）才会执行。
 
 **Q：绑定命令提示「该服务器模组不支持绑定功能」？**
-A：这是**能力探测**的结果，不是连接故障：绑定需要服务端模组 **AstrBotAdapter_Forge_Forward v1.1.0+**（声明 `binding.v1` 能力）。请把服务端模组升级到该版本；升级前其它功能照常可用。
+A：这是**能力探测**的结果，不是连接故障：绑定需要服务端模组 **AstrBotAdapter_NeoForge v1.1.0+**（声明 `binding.v1` 能力）。请把服务端模组升级到该版本；升级前其它功能照常可用。
 
 **Q：`/mc bind` 提示「白名单写入失败」？**
 A：服务端 `server.properties` 里的 `white-list` / `enforce-whitelist` 未开启时，模组无法把游戏 ID 写入白名单，请服主开启后重试。

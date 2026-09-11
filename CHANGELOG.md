@@ -13,7 +13,7 @@
 - 新增配置项 `bind_enabled`、`bind_geyser_enabled`、`bind_unbind_enabled`（均默认开启）。
 
 ### ⚙️ 变更
-- 兼容两种服务端模组：连接新版 AstrBotAdapter_Forge_Forward（v1.1.0+）时绑定功能可用；连接原版 AstrBotAdapter_Forge 时自动识别为不支持，绑定指令给出升级提示，其余功能（状态查询、玩家列表、远程指令、AI 聊天、消息互通）完全不受影响。
+- 兼容两种服务端模组：连接新版 AstrBotAdapter_NeoForge（v1.1.0+）时绑定功能可用；连接原版 AstrBotAdapter_Forge 时自动识别为不支持，绑定指令给出升级提示，其余功能（状态查询、玩家列表、远程指令、AI 聊天、消息互通）完全不受影响。
 - `/mc help` 的帮助文本按能力动态生成：服务端不支持绑定时不列出绑定指令。
 - 用户可见文案中的「本会话的 Session ID」统一改为「会话 ID」。
 
