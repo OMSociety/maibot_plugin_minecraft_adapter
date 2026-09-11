@@ -18,7 +18,7 @@
 
 > 🎨 本项目由 AstrBot 插件 [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 迁移而来，改为 MaiBot 插件。
 >
-> 孪生项目（MC 服务端模组）：[AstrBotAdapter_NeoForge](https://github.com/OMSociety/AstrBotAdapter_NeoForge)（Forge 1.20.1 + NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
+> 孪生项目（MC 服务端模组）：[AstrBotAdapter_NeoForge](https://github.com/OMSociety/AstrBotAdapter_NeoForge)（NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
 
 ---
 
@@ -30,7 +30,7 @@
 | 🔁 **消息互通** | MC 服务器 ↔ 外部群/私聊双向转发，支持自定义格式与进出提示 |
 | 🖥️ **服务器管理** | 状态查询 / 在线玩家 / 玩家详情 / 远程指令，信息可渲染为图片 |
 | 🛡️ **指令安全** | 远程指令与自定义指令均支持白名单/黑名单，`/mc cmd` 为操作员级命令 |
-| 🔗 **群友绑定** | 群成员自助把 QQ 绑定到游戏 ID，服务端自动写入白名单；Java 版与基岩版可各绑一条（需模组 v1.2.0+，v1.1.0 仅单条） |
+| 🔗 **群友绑定** | 群成员自助把 QQ 绑定到游戏 ID，服务端自动写入白名单；Java 版与基岩版可各绑一条（需模组 AstrBotAdapter_NeoForge v1.1.0+） |
 
 ---
 
@@ -66,7 +66,7 @@
 > ⚠️ **双版本兼容**：绑定功能依赖服务端模组的能力声明（`binding.v1`），**需要 AstrBotAdapter_NeoForge v1.1.0+**。插件在每次连接建立时自动探测能力，不依赖版本号：
 > - 旧版 **AstrBotAdapter_Forge（v1.0.0）** 没有该能力 → 绑定命令会明确提示需要升级模组，`/mc help` 也不会列出绑定命令，**其余功能（AI 聊天、消息互通、状态查询、远程指令）完全不受影响**；
 > - 能力探测失败（服务不可达/响应异常）时按「不支持」处理，同样只是拒绝绑定，不会影响连接与其它命令。
-> - **模组 v1.2.0+ 才有「Java 版与基岩版双绑定」**；连接 v1.1.0 模组时 `/mc mybind` 会回退为单条展示，其余绑定功能仍可用。
+> - 「Java 版与基岩版双绑定」由 AstrBotAdapter_NeoForge 提供；连接能力更少、不支持双绑定的旧服务端模组时，`/mc mybind` 会回退为单条展示，其余绑定功能仍可用。
 
 ---
 
