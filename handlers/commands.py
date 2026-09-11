@@ -1018,6 +1018,10 @@ BIND_MSG_PROBE_FAILED = "❌ 无法确认服务器绑定能力，请检查模组
 BIND_MSG_UNSUPPORTED = (
     "❌ 该服务器模组不支持绑定功能，请升级到 AstrBotAdapter_NeoForge（v1.1.0+）"
 )
+BIND_MSG_MOD_DISABLED = (
+    "❌ 服务端模组尚未开启绑定功能：请在服务器 config/astrbotadapter/config.yml 里把 "
+    "binding.enabled 设为 true，再执行 /astrbot reload"
+)
 BIND_MSG_INVALID_NAME = "❌ 游戏 ID 只能包含字母、数字、下划线、点号或中文，长度 1–32"
 BIND_MSG_NAME_TAKEN = "❌ 该游戏 ID 已被其他账号绑定"
 BIND_MSG_WHITELIST_FAILED = "❌ 白名单写入失败，请检查服务器白名单是否开启"
@@ -1123,7 +1127,9 @@ class BindingHandler:
         if code == 4006:
             return BIND_MSG_INVALID_NAME
         if code == 4003:
-            return BIND_MSG_UNSUPPORTED
+            # 4003 是服务端 binding.enabled=false（模组支持绑定但没开启），
+            # 与「模组不支持」是两回事，不能提示用户升级模组。
+            return BIND_MSG_MOD_DISABLED
         if code == 5004:
             return BIND_MSG_WHITELIST_FAILED
         if fallback:

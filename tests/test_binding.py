@@ -20,6 +20,7 @@ from maibot_plugin_minecraft_adapter.handlers.commands import (
     BIND_MSG_DISABLED,
     BIND_MSG_GEYSER_DISABLED,
     BIND_MSG_INVALID_NAME,
+    BIND_MSG_MOD_DISABLED,
     BIND_MSG_NAME_TAKEN,
     BIND_MSG_NOT_BOUND,
     BIND_MSG_NOT_CONNECTED,
@@ -230,7 +231,8 @@ def test_valid_name_passes_local_validation(good_name):
     [
         (4005, BIND_MSG_NAME_TAKEN),
         (4006, BIND_MSG_INVALID_NAME),
-        (4003, BIND_MSG_UNSUPPORTED),
+        # 4003 是「模组支持绑定但没开启」，不是「模组不支持」，两者文案必须区分开
+        (4003, BIND_MSG_MOD_DISABLED),
         (5004, BIND_MSG_WHITELIST_FAILED),
     ],
 )
