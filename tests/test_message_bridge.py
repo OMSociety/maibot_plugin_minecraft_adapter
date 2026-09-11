@@ -17,7 +17,9 @@ def _bridge() -> MessageBridge:
     return MessageBridge(None, {}, None)
 
 
-def _connected_bridge(prefix: str, target_sessions: list[str] | None = None) -> tuple[MessageBridge, MagicMock]:
+def _connected_bridge(
+    prefix: str, target_sessions: list[str] | None = None
+) -> tuple[MessageBridge, MagicMock]:
     """构造一个带「已连接 MC 服务器」的 bridge，用于测试 handle_external_message。"""
     config = ServerConfig(
         server_id="sv1",

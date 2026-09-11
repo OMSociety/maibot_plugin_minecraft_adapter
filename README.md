@@ -30,6 +30,7 @@
 | 🔁 **消息互通** | MC 服务器 ↔ 外部群/私聊双向转发，支持自定义格式与进出提示 |
 | 🖥️ **服务器管理** | 状态查询 / 在线玩家 / 玩家详情 / 远程指令，信息可渲染为图片 |
 | 🛡️ **指令安全** | 远程指令与自定义指令均支持白名单/黑名单，`/mc cmd` 为操作员级命令 |
+| 🔗 **群友绑定** | 群成员自助把 QQ 绑定到游戏 ID，服务端自动写入白名单（需模组 v1.1.0+） |
 
 ---
 
@@ -49,6 +50,20 @@
 
 ### 🛡️ 指令安全
 远程指令默认白名单（`["say","list","weather","time"]`），`/mc cmd` **和自定义指令**均为操作员级命令，只有配置了 operator 权限的用户能执行。
+
+### 🔗 群友绑定（白名单自助）
+群成员在目标会话里自助绑定，服务端把游戏 ID 写进白名单，省去手动 `whitelist add`：
+
+- `/mc bind <游戏ID>` —— 绑定 Java 版游戏 ID 并加入白名单
+- `/mc geyserbind <基岩版ID>` —— 绑定基岩版 ID（需服务端开启 Floodgate 与 `bind_geyser_enabled`）
+- `/mc unbind` —— 解除绑定并尝试移出白名单
+- `/mc mybind` —— 查看自己的绑定状态
+
+绑定按「平台 + 用户 ID」记账，任何人只能操作自己的绑定；回复里不会出现他人 QQ 号。
+
+> ⚠️ **双版本兼容**：绑定功能依赖服务端模组的能力声明（`binding.v1`），**需要 AstrBotAdapter_Forge_Forward v1.1.0+**。插件在每次连接建立时自动探测能力，不依赖版本号：
+> - 旧版 **AstrBotAdapter_Forge（v1.0.0）** 没有该能力 → 绑定命令会明确提示需要升级模组，`/mc help` 也不会列出绑定命令，**其余功能（AI 聊天、消息互通、状态查询、远程指令）完全不受影响**；
+> - 能力探测失败（服务不可达/响应异常）时按「不支持」处理，同样只是拒绝绑定，不会影响连接与其它命令。
 
 ---
 
@@ -105,6 +120,9 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | 远程指令 | `cmd_white_black_list` | string | `"white"` | white/black/none |
 | 远程指令 | `cmd_list` | list | `["say","list","weather","time"]` | 指令名单 |
 | 远程指令 | `custom_cmd_list` | list | `[]` | 自定义指令映射（实际指令名需在白名单内；仅操作员可触发） |
+| 群友绑定 | `bind_enabled` | bool | `true` | 群友绑定总开关（需模组 `binding.v1` 能力） |
+| 群友绑定 | `bind_geyser_enabled` | bool | `true` | 基岩版绑定开关（`/mc geyserbind`） |
+| 群友绑定 | `bind_unbind_enabled` | bool | `true` | 解绑开关（`/mc unbind`） |
 
 > 💡 **`/mc cmd` 为操作员级命令**：需在 MaiBot 的 `[plugin].permission` 配置操作员列表（如 `qq:123456789`）后才能执行。
 >
@@ -132,7 +150,10 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
   "cmd_enabled": true,
   "cmd_white_black_list": "white",
   "cmd_list": ["say", "list", "weather", "time"],
-  "custom_cmd_list": []
+  "custom_cmd_list": [],
+  "bind_enabled": true,
+  "bind_geyser_enabled": true,
+  "bind_unbind_enabled": true
 }
 ```
 
@@ -147,8 +168,14 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | `/mc list` | 查看在线玩家列表 | 公开 |
 | `/mc player <玩家ID>` | 查看玩家详细信息 | 公开 |
 | `/mc cmd <指令>` | 远程执行服务器指令 | **操作员** |
+| `/mc bind <游戏ID>` | 绑定游戏 ID 并加入白名单 | 公开 |
+| `/mc geyserbind <基岩版ID>` | 绑定基岩版 ID（Floodgate） | 公开 |
+| `/mc unbind` | 解除绑定并移出白名单 | 公开 |
+| `/mc mybind` | 查看自己的绑定 | 公开 |
 
 > 💡 **多服务器选择**：当前会话关联多个服务器时，需要区分目标的指令会显示服务器列表，发送编号选择目标。
+
+> 💡 **绑定命令与模组版本**：绑定类命令仅在服务端模组声明 `binding.v1` 能力时可用（AstrBotAdapter_Forge_Forward v1.1.0+）；连接旧版 AstrBotAdapter_Forge 时命令会提示升级模组，`/mc help` 中也不会列出这几条命令。
 
 ---
 
@@ -167,6 +194,12 @@ A：`/mc cmd` 是操作员级命令。需在 MaiBot 的 `[plugin].permission` �
 
 **Q：自定义指令为什么不生效？**
 A：自定义指令映射出的实际指令名（如 `tp`/`give`）受 `cmd_list` 白名单约束，需把指令名加入白名单（或把 `cmd_white_black_list` 设为 `none`）才会执行。
+
+**Q：绑定命令提示「该服务器模组不支持绑定功能」？**
+A：这是**能力探测**的结果，不是连接故障：绑定需要服务端模组 **AstrBotAdapter_Forge_Forward v1.1.0+**（声明 `binding.v1` 能力）。请把服务端模组升级到该版本；升级前其它功能照常可用。
+
+**Q：`/mc bind` 提示「白名单写入失败」？**
+A：服务端 `server.properties` 里的 `white-list` / `enforce-whitelist` 未开启时，模组无法把游戏 ID 写入白名单，请服主开启后重试。
 
 **Q：换别的平台适配器也能用吗？**
 A：能。目标会话用 Session ID 而非平台专用群号，任何适配器（napcat / telegram 等）都通用。

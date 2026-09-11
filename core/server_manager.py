@@ -6,6 +6,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from .models import MCMessage, ServerConfig, ServerInfo
+from .protocol import ServerCapabilities
 from .rest_client import RestClient
 from .ws_client import WebSocketClient
 
@@ -47,6 +48,8 @@ class ServerConnection:
         )
 
         self._task: asyncio.Task | None = None
+        # 运行时探测到的服务端能力（未探测 = 什么都不支持，fail closed）
+        self.capabilities: ServerCapabilities = ServerCapabilities.unprobed()
 
     @property
     def server_id(self) -> str:
@@ -57,14 +60,41 @@ class ServerConnection:
         return self.ws_client.connected
 
     @property
+    def supports_binding(self) -> bool:
+        """服务端是否声明并提供绑定能力（需已成功探测到 binding.v1）。"""
+        return self.capabilities.supports_binding
+
+    @property
     def server_info(self) -> ServerInfo | None:
         return self.ws_client.server_info
+
+    async def _probe_capabilities(self) -> None:
+        """探测服务端协议能力（连接建立 / 重连时调用）。
+
+        探测失败只记 debug 日志：旧版模组（AstrBotAdapter_Forge v1.0.0）
+        没有绑定能力属正常状态，不应刷 ERROR 日志。
+        """
+        try:
+            self.capabilities = await self.rest_client.fetch_capabilities()
+        except Exception as e:  # noqa: BLE001 - 探测失败按「不支持」处理
+            logger.debug(f"[MC-{self.server_id}] 能力探测异常，按不支持处理: {e}")
+            self.capabilities = ServerCapabilities.unprobed()
+            return
+
+        logger.debug(
+            f"[MC-{self.server_id}] 能力探测: protocolVersion="
+            f"{self.capabilities.protocol_version} "
+            f"features={sorted(self.capabilities.features)} "
+            f"binding={self.capabilities.supports_binding}"
+        )
 
     async def _handle_ws_message(self, msg: MCMessage):
         if self._on_message:
             await self._on_message(self.server_id, msg)
 
     async def _handle_connect(self, info: ServerInfo):
+        # 每次（重）连成功都重新探测：服务端模组可能被升级/降级
+        await self._probe_capabilities()
         if self._on_connect:
             await self._on_connect(self.server_id, info)
 

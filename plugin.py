@@ -29,7 +29,12 @@ from maibot_sdk.types import HookMode, HookOrder
 
 from .core.models import MCMessage, MessageType, ServerConfig, ServerInfo
 from .core.server_manager import ServerManager
-from .handlers.commands import CommandContext, CommandHandler, is_operator_match
+from .handlers.commands import (
+    BindingHandler,
+    CommandContext,
+    CommandHandler,
+    is_operator_match,
+)
 from .services.ai_chat import AIChatService
 from .services.message_bridge import MessageBridge
 from .services.renderer import InfoRenderer, RenderResult
@@ -146,6 +151,22 @@ class McServerConfig(PluginConfigBase):
         description="自定义指令映射（格式：触发词 <&参数&><<>>实际指令；实际指令名需在 cmd_list 白名单内）",
         json_schema_extra={"label": "自定义指令映射"},
     )
+    # 群友绑定配置
+    bind_enabled: bool = Field(
+        default=True,
+        description="启用群友绑定功能（QQ 账号绑定游戏 ID 并写入白名单，需模组支持）",
+        json_schema_extra={"label": "启用群友绑定"},
+    )
+    bind_geyser_enabled: bool = Field(
+        default=True,
+        description="启用基岩版绑定（/mc geyserbind，需服务端开启 Floodgate）",
+        json_schema_extra={"label": "启用基岩版绑定"},
+    )
+    bind_unbind_enabled: bool = Field(
+        default=True,
+        description="启用解绑功能（/mc unbind）",
+        json_schema_extra={"label": "启用解绑功能"},
+    )
 
 
 class PluginBaseConfig(PluginConfigBase):
@@ -213,6 +234,7 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         self.ai_chat: AIChatService | None = None
         self.renderer: InfoRenderer | None = None
         self.command_handler: CommandHandler | None = None
+        self.binding_handler: BindingHandler | None = None
         self._server_configs: dict[str, ServerConfig] = {}
         self._running = False
 
@@ -273,6 +295,15 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
                 self.command_handler.register_custom_commands(
                     server_id, config.custom_cmd_list
                 )
+
+        # 群友绑定处理器（复用命令处理器的会话作用域与编号选择待选机制）
+        self.binding_handler = BindingHandler(
+            server_manager=self.server_manager,
+            get_server_config=lambda sid: self._server_configs.get(sid),
+            resolve_server=self.command_handler._resolve_server_or_pending,
+            session_servers=self.command_handler._get_session_servers_by,
+        )
+        self.command_handler.pending_dispatcher = self.binding_handler.handle_selection
 
         # 启动服务器连接
         if self.config.general.enabled:
@@ -375,7 +406,7 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
     @Command(
         "mc_help",
         description="显示 Minecraft 聊天适配器帮助",
-        pattern=r"^/mc(?:\s+help)?$",
+        pattern=r"^/mc(?:\s+help)?\s*$",
     )
     async def handle_mc_help(self, **kwargs):
         if not self.command_handler:
@@ -433,6 +464,64 @@ class MinecraftAdapterPlugin(MaiBotPlugin):
         result = await self.command_handler.handle_cmd(ctx, command)
         await self._send_result(result, ctx.stream_id)
         return True, "指令已执行", 2
+
+    # ── @Command：群友绑定（自助，默认权限） ────────────
+
+    @Command(
+        "mc_bind",
+        description="绑定 QQ 账号到游戏 ID 并加入白名单",
+        pattern=r"^/mc\s+bind\s+(?P<game_name>\S+)$",
+    )
+    async def handle_mc_bind(self, **kwargs):
+        if not self.binding_handler:
+            return False, "未初始化", 1
+        ctx = self._build_context(kwargs)
+        matched = kwargs.get("matched_groups") or {}
+        game_name = (matched.get("game_name") or "").strip()
+        result = await self.binding_handler.handle_bind(ctx, game_name)
+        await self._send_result(result, ctx.stream_id)
+        return True, "绑定结果已发送", 2
+
+    @Command(
+        "mc_geyserbind",
+        description="绑定基岩版 ID 并加入白名单",
+        pattern=r"^/mc\s+geyserbind\s+(?P<bedrock_name>\S+)$",
+    )
+    async def handle_mc_geyserbind(self, **kwargs):
+        if not self.binding_handler:
+            return False, "未初始化", 1
+        ctx = self._build_context(kwargs)
+        matched = kwargs.get("matched_groups") or {}
+        bedrock_name = (matched.get("bedrock_name") or "").strip()
+        result = await self.binding_handler.handle_bind(ctx, bedrock_name, bedrock=True)
+        await self._send_result(result, ctx.stream_id)
+        return True, "绑定结果已发送", 2
+
+    @Command(
+        "mc_unbind",
+        description="解除 QQ 账号与游戏 ID 的绑定",
+        pattern=r"^/mc\s+unbind$",
+    )
+    async def handle_mc_unbind(self, **kwargs):
+        if not self.binding_handler:
+            return False, "未初始化", 1
+        ctx = self._build_context(kwargs)
+        result = await self.binding_handler.handle_unbind(ctx)
+        await self._send_result(result, ctx.stream_id)
+        return True, "解绑结果已发送", 2
+
+    @Command(
+        "mc_mybind",
+        description="查看自己的游戏 ID 绑定",
+        pattern=r"^/mc\s+mybind$",
+    )
+    async def handle_mc_mybind(self, **kwargs):
+        if not self.binding_handler:
+            return False, "未初始化", 1
+        ctx = self._build_context(kwargs)
+        result = await self.binding_handler.handle_mybind(ctx)
+        await self._send_result(result, ctx.stream_id)
+        return True, "绑定信息已发送", 2
 
     # ── @HookHandler：入站消息观察（转发/编号选择/自定义指令）──
 

@@ -96,16 +96,33 @@ class WebSocketClient:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 data = msg.json()
                 if data.get("type") == MessageType.CONNECTION_ACK.value:
-                    self._session_id = data.get("data", {}).get("sessionId", "")
-                    server_data = data.get("data", {}).get("serverInfo", {})
+                    # 协议 §4.1：sessionId / serverInfo 都在 payload 里
+                    # （旧实现误读 data.data，导致 server_info 永远为空）
+                    payload = data.get("payload")
+                    if not isinstance(payload, dict):
+                        payload = {}
+                    legacy = data.get("data")
+                    if not payload and isinstance(legacy, dict):
+                        # 兼容把字段放在 data 下的旧版/第三方实现
+                        payload = legacy
+                    self._session_id = str(payload.get("sessionId") or "")
+                    server_data = payload.get("serverInfo")
+                    if not isinstance(server_data, dict):
+                        server_data = {}
                     self._server_info = ServerInfo.from_dict(server_data)
                     self._connected = True
                     self._reconnect_delay = DEFAULT_RECONNECT_DELAY  # 成功后重置
 
-                    logger.info(
-                        f"[MC-{self.server_id}] 已连接到 {self._server_info.name} "
-                        f"({self._server_info.platform} {self._server_info.minecraft_version})"
-                    )
+                    info = self._server_info
+                    if info.name or info.platform or info.minecraft_version:
+                        logger.info(
+                            f"[MC-{self.server_id}] 已连接到 {info.name} "
+                            f"({info.platform} {info.minecraft_version})"
+                        )
+                    else:
+                        logger.info(
+                            f"[MC-{self.server_id}] 已连接（服务端未上报名称/版本）"
+                        )
 
                     if self.on_connect:
                         await self.on_connect(self._server_info)

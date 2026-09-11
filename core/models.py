@@ -344,6 +344,10 @@ class ServerConfig:
     cmd_white_black_list: str = "white"
     cmd_list: list[str] = field(default_factory=list)
     custom_cmd_list: list[str] = field(default_factory=list)
+    # 群友绑定（游戏 ID ↔ QQ 账号 + 白名单写入）
+    bind_enabled: bool = True
+    bind_geyser_enabled: bool = True
+    bind_unbind_enabled: bool = True
 
     @classmethod
     def from_dict(cls, data: dict) -> "ServerConfig":
@@ -351,6 +355,7 @@ class ServerConfig:
         server = data.get("server", {}) if nested else data
         message = data.get("message", {}) if nested else data
         cmd = data.get("cmd", {}) if nested else data
+        bind = data.get("bind", {}) if nested else data
 
         return cls(
             enabled=data.get("enabled", True),
@@ -360,9 +365,7 @@ class ServerConfig:
             token=server.get("token", ""),
             enable_ai_chat=data.get("enable_ai_chat", True),
             text2image=data.get("text2image", True),
-            forward_chat_to_astrbot=message.get(
-                "forward_chat_to_astrbot", True
-            ),
+            forward_chat_to_astrbot=message.get("forward_chat_to_astrbot", True),
             forward_chat_format=message.get(
                 "forward_chat_format", "<{player}> {message}"
             ),
@@ -376,6 +379,9 @@ class ServerConfig:
             cmd_white_black_list=cmd.get("cmd_white_black_list", "white"),
             cmd_list=cmd.get("cmd_list", []),
             custom_cmd_list=cmd.get("custom_cmd_list", []),
+            bind_enabled=bind.get("bind_enabled", True),
+            bind_geyser_enabled=bind.get("bind_geyser_enabled", True),
+            bind_unbind_enabled=bind.get("bind_unbind_enabled", True),
         )
 
 

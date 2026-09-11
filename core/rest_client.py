@@ -13,6 +13,7 @@ from .models import (
     ServerInfo,
     ServerStatus,
 )
+from .protocol import ServerCapabilities
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_REQUEST_TIMEOUT = 30  # 默认请求超时（秒）
 HEALTH_CHECK_TIMEOUT = 5  # 健康检查超时（秒）
 MAX_LOG_LINES = 1000  # 最大日志行数
+
+# 绑定相关错误码（见服务端模组协议 3.1 响应信封 / 绑定 API）
+CODE_FEATURE_DISABLED = 4003  # 功能未启用
+CODE_BINDING_NOT_FOUND = 4004  # 尚未绑定
+CODE_BINDING_NAME_TAKEN = 4005  # 该游戏 ID 已被其他账号绑定
+CODE_BINDING_INVALID_NAME = 4006  # 游戏 ID 格式不合法
+CODE_WHITELIST_FAILED = 5004  # 白名单写入失败
 
 
 class RestClient:
@@ -74,6 +82,7 @@ class RestClient:
         endpoint: str,
         params: dict | None = None,
         json_data: dict | None = None,
+        timeout: int | None = None,
     ) -> ApiResponse:
         """向服务器发送 HTTP 请求"""
         url = f"{self.base_url}{endpoint}"
@@ -86,7 +95,7 @@ class RestClient:
                 headers=self.headers,
                 params=params,
                 json=json_data,
-                timeout=aiohttp.ClientTimeout(total=self._request_timeout),
+                timeout=aiohttp.ClientTimeout(total=timeout or self._request_timeout),
             ) as resp:
                 data = await resp.json()
                 return ApiResponse.from_dict(data)
@@ -101,11 +110,23 @@ class RestClient:
             logger.error(f"[MC-{self.server_id}] 请求错误: {self._redact(str(e))}")
             return ApiResponse(code=3001, message=str(e))
 
-    async def _get(self, endpoint: str, params: dict | None = None) -> ApiResponse:
-        return await self._request("GET", endpoint, params=params)
+    async def _get(
+        self,
+        endpoint: str,
+        params: dict | None = None,
+        timeout: int | None = None,
+    ) -> ApiResponse:
+        return await self._request("GET", endpoint, params=params, timeout=timeout)
 
-    async def _post(self, endpoint: str, json_data: dict | None = None) -> ApiResponse:
-        return await self._request("POST", endpoint, json_data=json_data)
+    async def _post(
+        self,
+        endpoint: str,
+        json_data: dict | None = None,
+        timeout: int | None = None,
+    ) -> ApiResponse:
+        return await self._request(
+            "POST", endpoint, json_data=json_data, timeout=timeout
+        )
 
     # 服务器 APIs
 
@@ -136,16 +157,40 @@ class RestClient:
             return status, ""
         return None, resp.message
 
-    async def health_check(self) -> bool:
-        """检查服务器是否健康（不需要认证）"""
+    async def fetch_capabilities(self) -> ServerCapabilities:
+        """探测服务端协议能力（`GET /api/v1/health`，无需认证）。
+
+        协议文档要求客户端运行时探测能力而非假设版本：绑定类功能必须以此为准。
+        探测失败（服务不可达、响应异常）返回 `probed=False` 的能力对象，
+        由调用方决定是否优雅降级——本方法自身不抛异常。
+        """
         try:
-            session = await self._get_session()
-            url = f"http://{self.host}:{self.port}/api/v1/health"
-            async with session.get(
-                url, timeout=aiohttp.ClientTimeout(total=HEALTH_CHECK_TIMEOUT)
-            ) as resp:
-                data = await resp.json()
-                return data.get("code") == 0
+            resp = await self._get("/health", timeout=HEALTH_CHECK_TIMEOUT)
+        except Exception as e:  # noqa: BLE001 - 探测失败按「不支持」处理
+            logger.debug(
+                f"[MC-{self.server_id}] 能力探测请求失败: {self._redact(str(e))}"
+            )
+            return ServerCapabilities.unprobed()
+
+        if not resp.success:
+            logger.debug(
+                f"[MC-{self.server_id}] 能力探测失败: code={resp.code} "
+                f"{self._redact(resp.message)}"
+            )
+            return ServerCapabilities.unprobed()
+
+        return ServerCapabilities.from_health(resp.data)
+
+    async def health_check(self) -> bool:
+        """检查服务器是否健康（不需要认证）。
+
+        保留布尔语义（供既有调用方使用），实现复用能力探测：
+        只要 `GET /api/v1/health` 返回 `code == 0` 即视为健康，
+        与 `features` 内容无关（旧版模组没有能力字段也算健康）。
+        """
+        try:
+            resp = await self._get("/health", timeout=HEALTH_CHECK_TIMEOUT)
+            return resp.success
         except Exception:
             return False
 
@@ -244,3 +289,91 @@ class RestClient:
             logs = [LogEntry.from_dict(log) for log in resp.data.get("logs", [])]
             return logs, ""
         return [], resp.message
+
+    # 绑定 APIs（AstrBotAdapter_Forge_Forward v1.1.0+，需先探测 binding.v1 能力）
+
+    def _binding_message(self, resp: ApiResponse, fallback: str) -> str:
+        """整理绑定接口的错误文本（脱敏，避免把 Token 带进回复/日志）。"""
+        text = (resp.message or "").strip()
+        if not text:
+            return fallback
+        return self._redact(text)
+
+    async def bind_player(
+        self,
+        platform: str,
+        user_id: str,
+        game_name: str,
+        bedrock: bool = False,
+    ) -> tuple[bool, dict, int, str]:
+        """把外部平台账号绑定到游戏 ID，并写入服务器白名单。
+
+        参数:
+            platform: 外部平台名（如 qq）
+            user_id: 外部平台用户 ID
+            game_name: 游戏内 ID（Java 版为玩家名，基岩版为基岩 ID）
+            bedrock: 是否基岩版（Floodgate 前缀处理）
+
+        返回:
+            tuple: (是否成功, 响应 data, 服务端错误码, 错误消息)
+            错误码一并返回，由调用方映射成用户文案，避免在这里丢掉语义。
+        """
+        resp = await self._post(
+            "/bindings",
+            json_data={
+                "platform": platform,
+                "userId": user_id,
+                "gameName": game_name,
+                "bedrock": bedrock,
+            },
+        )
+        if resp.success:
+            return True, resp.data or {}, 0, ""
+
+        logger.debug(
+            f"[MC-{self.server_id}] 绑定失败: code={resp.code} "
+            f"{self._binding_message(resp, '绑定失败')}"
+        )
+        return False, {}, resp.code, self._binding_message(resp, "绑定失败")
+
+    async def unbind_player(
+        self, platform: str, user_id: str
+    ) -> tuple[bool, dict, int, str]:
+        """解除外部平台账号与游戏 ID 的绑定（并尝试移出白名单）。
+
+        返回:
+            tuple: (是否成功, 响应 data, 服务端错误码, 错误消息)
+        """
+        resp = await self._post(
+            "/bindings/unbind",
+            json_data={"platform": platform, "userId": user_id},
+        )
+        if resp.success:
+            return True, resp.data or {}, 0, ""
+
+        logger.debug(
+            f"[MC-{self.server_id}] 解绑失败: code={resp.code} "
+            f"{self._binding_message(resp, '解绑失败')}"
+        )
+        return False, {}, resp.code, self._binding_message(resp, "解绑失败")
+
+    async def lookup_binding(
+        self, platform: str, user_id: str
+    ) -> tuple[bool, dict, int, str]:
+        """查询外部平台账号的绑定状态。
+
+        返回:
+            tuple: (是否成功, 响应 data, 服务端错误码, 错误消息)
+        """
+        resp = await self._get(
+            "/bindings/lookup",
+            params={"platform": platform, "userId": user_id},
+        )
+        if resp.success:
+            return True, resp.data or {}, 0, ""
+
+        logger.debug(
+            f"[MC-{self.server_id}] 绑定查询失败: code={resp.code} "
+            f"{self._binding_message(resp, '查询失败')}"
+        )
+        return False, {}, resp.code, self._binding_message(resp, "查询失败")

@@ -195,6 +195,11 @@ class CommandHandler:
         self._custom_parsers: dict[str, CustomCommandParser] = {}
         # Pending actions per stream_id
         self._pending_actions: dict[str, PendingAction] = {}
+        # 绑定类待选动作的转发处理器（由插件在装配阶段注入 BindingHandler）
+        self.pending_dispatcher: (
+            Callable[["PendingAction", int, CommandContext], Awaitable[RenderResult]]
+            | None
+        ) = None
 
     def register_custom_commands(self, server_id: str, mappings: list[str]):
         """为服务器注册自定义命令"""
@@ -228,6 +233,14 @@ class CommandHandler:
         idx = int(selection_text)
         action = pending.action
         args = pending.args
+
+        # 绑定类动作（action 带 bind：前缀）交给 BindingHandler 处理
+        if self.pending_dispatcher is not None and action.startswith("bind:"):
+            result = await self.pending_dispatcher(pending, idx, ctx)
+            if result.text.startswith("❌ 编号无效"):
+                # 编号输错：把待选动作放回去，等用户重新输入
+                self._pending_actions[ctx.stream_id] = pending
+            return result
 
         if pending.cmd_targets:
             # Unified cmd target selection (proxy + backends)
@@ -349,6 +362,10 @@ class CommandHandler:
     status/list/player 会自动输出所有关联服务器结果
     cmd 在多目标下仍需编号选择"""
 
+        # 群友绑定指令：仅当本会话关联的服务器真的支持绑定能力时才展示
+        # （旧版 AstrBotAdapter_Forge 无此能力，直接省略，避免误导用户）
+        help_text += self._build_binding_help(ctx.stream_id)
+
         # 收集自定义指令列表
         custom_cmds = self._get_custom_command_triggers()
         if custom_cmds:
@@ -359,12 +376,36 @@ class CommandHandler:
 
         return RenderResult(help_text, is_image=False)
 
+    def _build_binding_help(self, stream_id: str) -> str:
+        """按服务端能力动态生成绑定指令帮助（不支持时返回空串）。"""
+        capable_servers = [
+            s for s in self._get_session_all_servers(stream_id) if s.supports_binding
+        ]
+        if not capable_servers:
+            return ""
+
+        geyser_ok = any(
+            (
+                config.bind_geyser_enabled
+                if (config := self.get_server_config(s.server_id))
+                else True
+            )
+            for s in capable_servers
+        )
+
+        section = "\n\n群友绑定:\n    /mc bind <游戏ID> - 绑定游戏 ID 并加入白名单"
+        if geyser_ok:
+            section += "\n    /mc geyserbind <基岩版ID> - 绑定基岩版 ID（Floodgate）"
+        section += "\n    /mc unbind - 解除绑定并移出白名单"
+        section += "\n    /mc mybind - 查看自己的绑定"
+        return section
+
     async def handle_status(self, ctx: CommandContext) -> RenderResult:
         """显示服务器状态"""
         all_servers = self._get_session_all_servers(ctx.stream_id)
         if not all_servers:
             return RenderResult(
-                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的会话 ID 添加到服务器的目标会话列表",
                 is_image=False,
             )
 
@@ -461,7 +502,7 @@ class CommandHandler:
         all_servers = self._get_session_all_servers(ctx.stream_id)
         if not all_servers:
             return RenderResult(
-                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的会话 ID 添加到服务器的目标会话列表",
                 is_image=False,
             )
 
@@ -512,7 +553,7 @@ class CommandHandler:
         all_servers = self._get_session_all_servers(ctx.stream_id)
         if not all_servers:
             return RenderResult(
-                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的会话 ID 添加到服务器的目标会话列表",
                 is_image=False,
             )
 
@@ -575,7 +616,7 @@ class CommandHandler:
         servers = self._get_session_servers(ctx.stream_id)
         if not servers:
             return RenderResult(
-                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的会话 ID 添加到服务器的目标会话列表",
                 is_image=False,
             )
 
@@ -704,25 +745,23 @@ class CommandHandler:
         return triggers
 
     def _get_session_servers(self, stream_id: str) -> list:
-        if not stream_id:
-            return []
-        servers = []
-        for server in self.server_manager.get_connected_servers():
-            config = self.get_server_config(server.server_id)
-            if (
-                config
-                and config.target_sessions
-                and stream_id in config.target_sessions
-            ):
-                servers.append(server)
-        return servers
+        return self._get_session_servers_by(stream_id, connected_only=True)
 
     def _get_session_all_servers(self, stream_id: str) -> list:
         """获取会话关联的全部服务器（含离线）。"""
+        return self._get_session_servers_by(stream_id, connected_only=False)
+
+    def _get_session_servers_by(self, stream_id: str, *, connected_only: bool) -> list:
+        """会话作用域解析（所有命令统一口径）：仅返回 target_sessions 命中本会话的服务器。"""
         if not stream_id:
             return []
+        source = (
+            self.server_manager.get_connected_servers()
+            if connected_only
+            else list(self.server_manager.get_all_servers().values())
+        )
         servers = []
-        for server in self.server_manager.get_all_servers().values():
+        for server in source:
             config = self.get_server_config(server.server_id)
             if (
                 config
@@ -838,6 +877,10 @@ class CommandHandler:
         return ""
 
     def _format_server_choices(self, servers: list) -> str:
+        return self._format_server_choices_static(servers)
+
+    @staticmethod
+    def _format_server_choices_static(servers: list) -> str:
         lines = []
         for idx, server in enumerate(servers, start=1):
             name = (
@@ -922,7 +965,7 @@ class CommandHandler:
         if not servers:
             return (
                 None,
-                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的 Session ID 添加到服务器的目标会话列表",
+                "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的会话 ID 添加到服务器的目标会话列表",
             )
 
         if len(servers) == 1:
@@ -961,3 +1004,276 @@ class CommandHandler:
             return cmd_name not in cmd_list
 
         return cmd_name in cmd_list
+
+
+# 群友绑定相关文案（与插件 README / 用户手册口径一致）
+BIND_MSG_DISABLED = "❌ 本服务器未启用群友绑定功能"
+BIND_MSG_GEYSER_DISABLED = "❌ 本服务器未启用基岩版绑定功能"
+BIND_MSG_UNBIND_DISABLED = "❌ 本服务器未启用解绑功能"
+BIND_MSG_PROBE_FAILED = "❌ 无法确认服务器绑定能力，请检查模组版本与连接"
+BIND_MSG_UNSUPPORTED = (
+    "❌ 该服务器模组不支持绑定功能，请升级到 AstrBotAdapter_Forge_Forward（v1.1.0+）"
+)
+BIND_MSG_INVALID_NAME = "❌ 游戏 ID 只能包含字母、数字、下划线、点号或中文，长度 1–32"
+BIND_MSG_NAME_TAKEN = "❌ 该游戏 ID 已被其他账号绑定"
+BIND_MSG_WHITELIST_FAILED = "❌ 白名单写入失败，请检查服务器白名单是否开启"
+BIND_MSG_NOT_BOUND = "❌ 你还没有绑定游戏 ID，请先发送 /mc bind <游戏ID>"
+BIND_MSG_NOT_CONNECTED = "❌ 服务器未连接，请稍后重试"
+BIND_MSG_NO_SERVER = "❌ 当前会话未关联任何服务器，请在插件配置中将本会话的会话 ID 添加到服务器的目标会话列表"
+
+# 游戏 ID 本地校验：字母/数字/下划线/点号/中文，长度 1–32
+GAME_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.\u4e00-\u9fa5]{1,32}$")
+
+
+class BindingHandler:
+    """群友绑定命令处理器（`/mc bind` / `geyserbind` / `unbind` / `mybind`）。
+
+    设计要点：
+    - 会话作用域与其它 mc 命令完全一致（只认 `target_sessions` 命中的服务器）；
+    - 多服务器时复用 CommandHandler 的 PendingAction 编号选择机制；
+    - 绑定能力必须经运行时能力探测（`binding.v1`）确认，旧版模组优雅降级；
+    - 所有回复均为纯文本，且只涉及发送者自己的账号信息，不回显他人 QQ 号。
+    """
+
+    def __init__(
+        self,
+        server_manager: "ServerManager",
+        get_server_config,
+        resolve_server: Callable[[str], tuple[object | None, str]],
+        session_servers: Callable[..., list] | None = None,
+    ):
+        self.server_manager = server_manager
+        self.get_server_config = get_server_config
+        self._resolve_server = resolve_server
+        self._session_servers = session_servers
+
+    # ── 会话作用域 ──────────────────────────────────────
+
+    def _all_session_servers(self, stream_id: str) -> list:
+        """会话关联的全部服务器（含离线），由装配阶段注入的统一解析器提供。"""
+        if self._session_servers is not None:
+            return self._session_servers(stream_id, connected_only=False)
+        return []
+
+    def _available_servers(self, stream_id: str, bedrock: bool) -> list:
+        """筛出本会话中「可用绑定」的服务器：开关开 + 能力支持（+ 基岩版开关）。"""
+        servers = []
+        for server in self._all_session_servers(stream_id):
+            config = self.get_server_config(server.server_id)
+            if not config or not config.bind_enabled:
+                continue
+            if not server.supports_binding:
+                continue
+            if bedrock and not config.bind_geyser_enabled:
+                continue
+            servers.append(server)
+        return servers
+
+    def _target_server(
+        self, stream_id: str, bedrock: bool
+    ) -> tuple[object | None, str]:
+        """解析目标服务器：0 个/多个/单个 三种结果（多个时写入待选动作）。"""
+        servers = self._available_servers(stream_id, bedrock)
+        if not servers:
+            # 逐个开关给出具体原因（文案顺序：未启用绑定 > 未启用基岩版 > 能力不支持）
+            all_servers = self._all_session_servers(stream_id)
+            if not all_servers:
+                return None, BIND_MSG_NO_SERVER
+            if all(
+                not (config := self.get_server_config(s.server_id))
+                or not config.bind_enabled
+                for s in all_servers
+            ):
+                return None, BIND_MSG_DISABLED
+            if bedrock and all(
+                not (config := self.get_server_config(s.server_id))
+                or not config.bind_geyser_enabled
+                for s in all_servers
+            ):
+                return None, BIND_MSG_GEYSER_DISABLED
+            if all(not s.capabilities.probed for s in all_servers):
+                return None, BIND_MSG_PROBE_FAILED
+            return None, BIND_MSG_UNSUPPORTED
+
+        if len(servers) > 1:
+            unavailable = len(self._all_session_servers(stream_id)) - len(servers)
+            action = "bind:geyser" if bedrock else "bind:java"
+            server, message = self._resolve_server(
+                stream_id, action=action, args={"bedrock": bedrock}
+            )
+            if not server:
+                if "⚠️" in message and unavailable > 0:
+                    message += f"\n（已按绑定功能开关与能力过滤掉 {unavailable} 个不可用服务器）"
+                return None, message
+            return server, ""
+
+        return servers[0], ""
+
+    # ── 文案映射 ────────────────────────────────────────
+
+    @staticmethod
+    def _error_message(code: int, fallback: str) -> str:
+        """把服务端错误码映射为用户可读文案（未知错误带上服务端 message）。"""
+        if code == 4005:
+            return BIND_MSG_NAME_TAKEN
+        if code == 4006:
+            return BIND_MSG_INVALID_NAME
+        if code == 4003:
+            return BIND_MSG_UNSUPPORTED
+        if code == 5004:
+            return BIND_MSG_WHITELIST_FAILED
+        if fallback:
+            return f"❌ 操作失败：{fallback}"
+        return "❌ 操作失败，请稍后重试"
+
+    # ── 命令入口 ────────────────────────────────────────
+
+    async def handle_bind(
+        self, ctx: CommandContext, game_name: str, bedrock: bool = False
+    ) -> RenderResult:
+        """绑定游戏 ID（bedrock=True 走基岩版/Floodgate 绑定）。"""
+        game_name = (game_name or "").strip()
+        if not game_name:
+            return RenderResult(BIND_MSG_INVALID_NAME, is_image=False)
+
+        server, message = self._target_server(ctx.stream_id, bedrock)
+        if not server:
+            return RenderResult(message, is_image=False)
+
+        if not GAME_NAME_PATTERN.match(game_name):
+            return RenderResult(BIND_MSG_INVALID_NAME, is_image=False)
+
+        if not server.connected:
+            return RenderResult(BIND_MSG_NOT_CONNECTED, is_image=False)
+
+        ok, data, code, err = await server.rest_client.bind_player(
+            platform=ctx.platform,
+            user_id=ctx.user_id,
+            game_name=game_name,
+            bedrock=bedrock,
+        )
+        return RenderResult(
+            self._format_bind_result(ok, data, code, err, game_name, bedrock),
+            is_image=False,
+        )
+
+    @staticmethod
+    def _format_bind_result(
+        ok: bool, data: dict, code: int, err: str, game_name: str, bedrock: bool
+    ) -> str:
+        if not ok:
+            return BindingHandler._error_message(code, err)
+
+        name = str(data.get("gameName") or game_name)
+        lines = [f"✅ 绑定成功：{name}"]
+        if bool(data.get("whitelistAdded")):
+            lines.append("已加入服务器白名单")
+        else:
+            lines.append("未写入白名单（请确认服务器白名单已开启）")
+        if bedrock or bool(data.get("floodgate")):
+            lines.append("基岩版账号（Floodgate）")
+        if bool(data.get("created")) is False:
+            lines.append("（已更新原有绑定）")
+        return "\n".join(lines)
+
+    async def handle_unbind(self, ctx: CommandContext) -> RenderResult:
+        """解除当前账号的绑定。"""
+        server, message = self._target_server(ctx.stream_id, bedrock=False)
+        if not server:
+            return RenderResult(message, is_image=False)
+
+        if not server.connected:
+            return RenderResult(BIND_MSG_NOT_CONNECTED, is_image=False)
+
+        config = self.get_server_config(server.server_id)
+        if config and not config.bind_unbind_enabled:
+            return RenderResult(BIND_MSG_UNBIND_DISABLED, is_image=False)
+
+        ok, data, code, err = await server.rest_client.unbind_player(
+            platform=ctx.platform, user_id=ctx.user_id
+        )
+        return RenderResult(
+            self._format_unbind_result(ok, data, code, err), is_image=False
+        )
+
+    @staticmethod
+    def _format_unbind_result(ok: bool, data: dict, code: int, err: str) -> str:
+        if not ok:
+            return BindingHandler._error_message(code, err)
+
+        name = str(data.get("gameName") or "")
+        lines = [f"✅ 已解除绑定：{name}" if name else "✅ 已解除绑定"]
+        if bool(data.get("whitelistRemoved")):
+            lines.append("已从白名单移除")
+        else:
+            lines.append("白名单未变更")
+        return "\n".join(lines)
+
+    async def handle_mybind(self, ctx: CommandContext) -> RenderResult:
+        """查询当前账号的绑定状态（只涉及发送者自己的账号）。"""
+        server, message = self._target_server(ctx.stream_id, bedrock=False)
+        if not server:
+            return RenderResult(message, is_image=False)
+
+        if not server.connected:
+            return RenderResult(BIND_MSG_NOT_CONNECTED, is_image=False)
+
+        ok, data, code, err = await server.rest_client.lookup_binding(
+            platform=ctx.platform, user_id=ctx.user_id
+        )
+        return RenderResult(
+            self._format_lookup_result(ok, data, code, err), is_image=False
+        )
+
+    @staticmethod
+    def _format_lookup_result(ok: bool, data: dict, code: int, err: str) -> str:
+        if not ok:
+            # 4004 = 尚未绑定，属于正常状态而非错误
+            if code == 4004:
+                return BIND_MSG_NOT_BOUND
+            return BindingHandler._error_message(code, err)
+
+        if not data.get("bound"):
+            return BIND_MSG_NOT_BOUND
+
+        name = str(data.get("gameName") or "")
+        lines = [f"✅ 已绑定游戏 ID：{name}"]
+        if bool(data.get("floodgate")):
+            lines.append("基岩版账号（Floodgate）")
+        if not bool(data.get("whitelistAdded")):
+            lines.append("⚠️ 尚未写入白名单，可重新绑定或联系服主")
+        return "\n".join(lines)
+
+    # ── 编号选择（多服务器） ────────────────────────────
+
+    async def handle_selection(
+        self, pending: PendingAction, idx: int, ctx: CommandContext
+    ) -> RenderResult:
+        """处理绑定类待选动作的编号回复（由 CommandHandler 转发）。"""
+        args = pending.args or {}
+        action = pending.action
+
+        if idx < 1 or idx > len(pending.servers):
+            choices = CommandHandler._format_server_choices_static(pending.servers)
+            # 待选动作由 CommandHandler.handle_number_selection 在识别到
+            # 「❌ 编号无效」后回写，用户可以重新输入编号
+            return RenderResult(
+                f"❌ 编号无效，请从以下列表中选择:\n{choices}", is_image=False
+            )
+
+        server = pending.servers[idx - 1]
+        if server is None:  # pragma: no cover - 防御性分支
+            return RenderResult("❌ 未知操作", is_image=False)
+        if action == "bind:geyser":
+            return await self.handle_bind(
+                ctx, str(args.get("game_name") or ""), bedrock=True
+            )
+        if action == "bind:java":
+            return await self.handle_bind(
+                ctx, str(args.get("game_name") or ""), bedrock=False
+            )
+        if action == "bind:unbind":
+            return await self.handle_unbind(ctx)
+        if action == "bind:mybind":
+            return await self.handle_mybind(ctx)
+        return RenderResult("❌ 未知操作", is_image=False)
