@@ -16,7 +16,7 @@
 
 import base64
 import logging
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from maibot_sdk import (
     Command,
@@ -50,16 +50,54 @@ class McServerConfig(PluginConfigBase):
 
     __ui_label__ = "MC 服务器"
 
+    __ui_i18n__: ClassVar[dict[str, dict[str, str]]] = {
+        "en-US": {
+            "title": "MC Server",
+            "description": "A single MC server",
+        },
+        "ja-JP": {
+            "title": "MC サーバー",
+            "description": "個々の MC サーバー",
+        },
+    }
+
     enabled: bool = Field(
         default=True,
         description="启用此服务器",
-        json_schema_extra={"label": "启用此服务器"},
+        json_schema_extra={
+            "label": "启用此服务器",
+            "i18n": {
+                "en-US": {
+                    "label": "Enable this server",
+                    "hint": "Enable this server",
+                },
+                "ja-JP": {
+                    "label": "このサーバーを有効化",
+                    "hint": "このサーバーを有効化",
+                },
+            },
+        },
     )
     # 服务器连接信息
     server_id: str = Field(
         default="my_server",
         description="服务器ID（唯一标识）",
-        json_schema_extra={"label": "服务器 ID", "placeholder": "例如 my_server"},
+        json_schema_extra={
+            "label": "服务器 ID",
+            "placeholder": "例如 my_server",
+            "i18n": {
+                "en-US": {
+                    "label": "Server ID",
+                    "hint": "Server ID (unique identifier)",
+                    "placeholder": "e.g. my_server",
+                },
+                "ja-JP": {
+                    "label": "サーバー ID",
+                    "hint": "サーバー ID（一意の識別子）",
+                    "placeholder": "例: my_server",
+                },
+            },
+        },
     )
     host: str = Field(
         default="localhost",
@@ -67,12 +105,39 @@ class McServerConfig(PluginConfigBase):
         json_schema_extra={
             "label": "服务器地址",
             "placeholder": "例如 192.168.1.10",
+            "i18n": {
+                "en-US": {
+                    "label": "Server address",
+                    "hint": "Server address (IP/domain of the server running AstrBotAdapter)",
+                    "placeholder": "e.g. 192.168.1.10",
+                },
+                "ja-JP": {
+                    "label": "サーバーアドレス",
+                    "hint": "サーバーアドレス（AstrBotAdapter が動作するサーバーの IP / ドメイン）",
+                    "placeholder": "例: 192.168.1.10",
+                },
+            },
         },
     )
     port: int = Field(
         default=8765,
         description="服务器端口（默认 8765）",
-        json_schema_extra={"label": "端口", "placeholder": "8765"},
+        json_schema_extra={
+            "label": "端口",
+            "placeholder": "8765",
+            "i18n": {
+                "en-US": {
+                    "label": "Port",
+                    "hint": "Server port (default 8765)",
+                    "placeholder": "8765",
+                },
+                "ja-JP": {
+                    "label": "ポート",
+                    "hint": "サーバーポート（デフォルト 8765）",
+                    "placeholder": "8765",
+                },
+            },
+        },
     )
     token: str = Field(
         default="",
@@ -80,24 +145,72 @@ class McServerConfig(PluginConfigBase):
         json_schema_extra={
             "label": "认证 Token",
             "placeholder": "AstrBotAdapter 的 token",
+            "i18n": {
+                "en-US": {
+                    "label": "Auth Token",
+                    "hint": "Auth Token (get it from the AstrBotAdapter config)",
+                    "placeholder": "Token of AstrBotAdapter",
+                },
+                "ja-JP": {
+                    "label": "認証トークン",
+                    "hint": "認証トークン（AstrBotAdapter の設定から取得）",
+                    "placeholder": "AstrBotAdapter の token",
+                },
+            },
         },
     )
     # AI 对话 / 渲染
     enable_ai_chat: bool = Field(
         default=True,
         description="启用 AI 对话（游戏内和 bot 聊天）",
-        json_schema_extra={"label": "启用 AI 对话"},
+        json_schema_extra={
+            "label": "启用 AI 对话",
+            "i18n": {
+                "en-US": {
+                    "label": "Enable AI chat",
+                    "hint": "Enable AI chat (players chat with the bot in-game)",
+                },
+                "ja-JP": {
+                    "label": "AI チャットを有効化",
+                    "hint": "AI チャットを有効化（ゲーム内で bot と会話）",
+                },
+            },
+        },
     )
     text2image: bool = Field(
         default=True,
         description="服务器信息渲染为图片输出",
-        json_schema_extra={"label": "渲染为图片"},
+        json_schema_extra={
+            "label": "渲染为图片",
+            "i18n": {
+                "en-US": {
+                    "label": "Render as image",
+                    "hint": "Render server info as an image",
+                },
+                "ja-JP": {
+                    "label": "画像レンダリング",
+                    "hint": "サーバー情報を画像として出力",
+                },
+            },
+        },
     )
     # 消息转发配置
     forward_chat_to_astrbot: bool = Field(
         default=True,
         description="转发 MC 聊天消息到目标会话",
-        json_schema_extra={"label": "转发聊天到目标会话"},
+        json_schema_extra={
+            "label": "转发聊天到目标会话",
+            "i18n": {
+                "en-US": {
+                    "label": "Forward chat to target sessions",
+                    "hint": "Forward MC chat messages to target sessions",
+                },
+                "ja-JP": {
+                    "label": "チャットを転送先セッションへ転送",
+                    "hint": "MC チャットメッセージを転送先セッションへ転送",
+                },
+            },
+        },
     )
     forward_chat_format: str = Field(
         default="<{player}> {message}",
@@ -105,17 +218,53 @@ class McServerConfig(PluginConfigBase):
         json_schema_extra={
             "label": "聊天消息格式",
             "placeholder": "<{player}> {message}",
+            "i18n": {
+                "en-US": {
+                    "label": "Chat message format",
+                    "hint": "Chat message format ({player} player name, {message} message content)",
+                    "placeholder": "<{player}> {message}",
+                },
+                "ja-JP": {
+                    "label": "チャットメッセージのフォーマット",
+                    "hint": "チャットメッセージのフォーマット（{player} プレイヤー名、{message} メッセージ内容）",
+                    "placeholder": "<{player}> {message}",
+                },
+            },
         },
     )
     forward_join_leave_to_astrbot: bool = Field(
         default=False,
         description="转发玩家进出消息",
-        json_schema_extra={"label": "转发进出消息"},
+        json_schema_extra={
+            "label": "转发进出消息",
+            "i18n": {
+                "en-US": {
+                    "label": "Forward join/leave messages",
+                    "hint": "Forward player join and leave messages",
+                },
+                "ja-JP": {
+                    "label": "参加・退出メッセージを転送",
+                    "hint": "プレイヤーの参加・退出メッセージを転送",
+                },
+            },
+        },
     )
     target_sessions: list[str] = Field(
         default_factory=list,
         description="目标会话 Session ID 列表（在 MaiBot WebUI『聊天管理』查看）",
-        json_schema_extra={"label": "目标会话列表"},
+        json_schema_extra={
+            "label": "目标会话列表",
+            "i18n": {
+                "en-US": {
+                    "label": "Target session list",
+                    "hint": "List of target Session IDs (see 'Chat Management' in the MaiBot WebUI)",
+                },
+                "ja-JP": {
+                    "label": "転送先セッションリスト",
+                    "hint": "転送先セッションの Session ID リスト（MaiBot WebUI の『チャット管理』で確認）",
+                },
+            },
+        },
     )
     auto_forward_prefix: str = Field(
         default="*",
@@ -123,49 +272,157 @@ class McServerConfig(PluginConfigBase):
         json_schema_extra={
             "label": "自动转发前缀",
             "placeholder": "留空转发全部",
+            "i18n": {
+                "en-US": {
+                    "label": "Auto-forward prefix",
+                    "hint": "Auto-forward prefix (only external messages starting with it are forwarded; leave empty to forward all)",
+                    "placeholder": "Leave empty to forward all",
+                },
+                "ja-JP": {
+                    "label": "自動転送プレフィックス",
+                    "hint": "自動転送プレフィックス（これで始まる外部メッセージのみ転送。空欄ですべて転送）",
+                    "placeholder": "空欄ですべて転送",
+                },
+            },
         },
     )
     mark_option: Literal["text", "none"] = Field(
         default="text",
         description="转发成功提醒方式（text=文本提醒，none=不提醒）",
-        json_schema_extra={"label": "转发提醒方式"},
+        json_schema_extra={
+            "label": "转发提醒方式",
+            "i18n": {
+                "en-US": {
+                    "label": "Forward notification",
+                    "hint": "How to notify when forwarding succeeds (text=text notice, none=no notice)",
+                },
+                "ja-JP": {
+                    "label": "転送通知方式",
+                    "hint": "転送成功時の通知方式（text=テキスト通知、none=通知なし）",
+                },
+            },
+        },
     )
     # 远程指令配置
     cmd_enabled: bool = Field(
         default=True,
         description="启用远程执行指令",
-        json_schema_extra={"label": "启用远程指令"},
+        json_schema_extra={
+            "label": "启用远程指令",
+            "i18n": {
+                "en-US": {
+                    "label": "Enable remote commands",
+                    "hint": "Enable remote command execution",
+                },
+                "ja-JP": {
+                    "label": "リモートコマンドを有効化",
+                    "hint": "リモートでのコマンド実行を有効化",
+                },
+            },
+        },
     )
     cmd_white_black_list: Literal["white", "black", "none"] = Field(
         default="white",
         description="指令名单类型（white=仅允许名单内，black=禁止名单内，none=不启用）",
-        json_schema_extra={"label": "指令名单类型"},
+        json_schema_extra={
+            "label": "指令名单类型",
+            "i18n": {
+                "en-US": {
+                    "label": "Command list type",
+                    "hint": "Command list type (white=allowlist only, black=denylist only, none=disabled)",
+                },
+                "ja-JP": {
+                    "label": "コマンドリストの種類",
+                    "hint": "コマンドリストの種類（white=許可リスト内のみ許可、black=拒否リスト内を禁止、none=無効）",
+                },
+            },
+        },
     )
     cmd_list: list[str] = Field(
         default_factory=lambda: ["say", "list", "weather", "time"],
         description="指令名单（填指令名，不带 /）",
-        json_schema_extra={"label": "指令名单"},
+        json_schema_extra={
+            "label": "指令名单",
+            "i18n": {
+                "en-US": {
+                    "label": "Command list",
+                    "hint": "Command list (enter command names, without /)",
+                },
+                "ja-JP": {
+                    "label": "コマンドリスト",
+                    "hint": "コマンドリスト（コマンド名を入力、「/」は不要）",
+                },
+            },
+        },
     )
     custom_cmd_list: list[str] = Field(
         default_factory=list,
         description="自定义指令映射（格式：触发词 <&参数&><<>>实际指令；实际指令名需在 cmd_list 白名单内）",
-        json_schema_extra={"label": "自定义指令映射"},
+        json_schema_extra={
+            "label": "自定义指令映射",
+            "i18n": {
+                "en-US": {
+                    "label": "Custom command mapping",
+                    "hint": "Custom command mapping (format: trigger <&参数&><<>>actual command; the actual command name must be in the cmd_list allowlist)",
+                },
+                "ja-JP": {
+                    "label": "カスタムコマンドマッピング",
+                    "hint": "カスタムコマンドマッピング（形式: トリガーワード <&参数&><<>>実際のコマンド。実際のコマンド名は cmd_list の許可リスト内である必要があります）",
+                },
+            },
+        },
     )
     # 群友绑定配置
     bind_enabled: bool = Field(
         default=True,
         description="启用群友绑定功能（QQ 账号绑定游戏 ID 并写入白名单，需模组支持）",
-        json_schema_extra={"label": "启用群友绑定"},
+        json_schema_extra={
+            "label": "启用群友绑定",
+            "i18n": {
+                "en-US": {
+                    "label": "Enable group member binding",
+                    "hint": "Enable group member binding (bind QQ accounts to game IDs and add them to the allowlist; requires server mod support)",
+                },
+                "ja-JP": {
+                    "label": "グループメンバーのバインドを有効化",
+                    "hint": "バインド機能を有効化（QQ アカウントをゲーム ID に紐付けて許可リストに登録。サーバーモッドの対応が必要）",
+                },
+            },
+        },
     )
     bind_geyser_enabled: bool = Field(
         default=True,
         description="启用基岩版绑定（/mc geyserbind，需服务端开启 Floodgate）",
-        json_schema_extra={"label": "启用基岩版绑定"},
+        json_schema_extra={
+            "label": "启用基岩版绑定",
+            "i18n": {
+                "en-US": {
+                    "label": "Enable Bedrock binding",
+                    "hint": "Enable Bedrock Edition binding (/mc geyserbind; requires Floodgate enabled on the server)",
+                },
+                "ja-JP": {
+                    "label": "Bedrock 版バインドを有効化",
+                    "hint": "Bedrock 版バインドを有効化（/mc geyserbind。サーバー側で Floodgate を有効にする必要があります）",
+                },
+            },
+        },
     )
     bind_unbind_enabled: bool = Field(
         default=True,
         description="启用解绑功能（/mc unbind）",
-        json_schema_extra={"label": "启用解绑功能"},
+        json_schema_extra={
+            "label": "启用解绑功能",
+            "i18n": {
+                "en-US": {
+                    "label": "Enable unbinding",
+                    "hint": "Enable unbinding (/mc unbind)",
+                },
+                "ja-JP": {
+                    "label": "バインド解除を有効化",
+                    "hint": "バインド解除機能を有効化（/mc unbind）",
+                },
+            },
+        },
     )
 
 
@@ -174,15 +431,51 @@ class PluginBaseConfig(PluginConfigBase):
 
     __ui_label__ = "插件基础设置"
 
+    __ui_i18n__: ClassVar[dict[str, dict[str, str]]] = {
+        "en-US": {
+            "title": "Plugin Basics",
+            "description": "Plugin base configuration",
+        },
+        "ja-JP": {
+            "title": "プラグイン基本設定",
+            "description": "プラグインの基本設定",
+        },
+    }
+
     config_version: str = Field(
         default="1.0.0",
         description="配置版本号",
-        json_schema_extra={"label": "配置版本", "disabled": True},
+        json_schema_extra={
+            "label": "配置版本",
+            "disabled": True,
+            "i18n": {
+                "en-US": {
+                    "label": "Config version",
+                    "hint": "Config version number",
+                },
+                "ja-JP": {
+                    "label": "設定バージョン",
+                    "hint": "設定のバージョン番号",
+                },
+            },
+        },
     )
     enabled: bool = Field(
         default=True,
         description="是否启用插件",
-        json_schema_extra={"label": "启用插件"},
+        json_schema_extra={
+            "label": "启用插件",
+            "i18n": {
+                "en-US": {
+                    "label": "Enable plugin",
+                    "hint": "Whether to enable the plugin",
+                },
+                "ja-JP": {
+                    "label": "プラグインを有効化",
+                    "hint": "プラグインを有効にするかどうか",
+                },
+            },
+        },
     )
 
 
@@ -191,10 +484,33 @@ class GeneralConfig(PluginConfigBase):
 
     __ui_label__ = "通用设置"
 
+    __ui_i18n__: ClassVar[dict[str, dict[str, str]]] = {
+        "en-US": {
+            "title": "General",
+            "description": "General settings",
+        },
+        "ja-JP": {
+            "title": "一般設定",
+            "description": "一般設定",
+        },
+    }
+
     enabled: bool = Field(
         default=True,
         description="启用 Minecraft 聊天适配器",
-        json_schema_extra={"label": "启用适配器"},
+        json_schema_extra={
+            "label": "启用适配器",
+            "i18n": {
+                "en-US": {
+                    "label": "Enable adapter",
+                    "hint": "Enable the Minecraft chat adapter",
+                },
+                "ja-JP": {
+                    "label": "アダプターを有効化",
+                    "hint": "Minecraft チャットアダプターを有効化",
+                },
+            },
+        },
     )
     mc_servers: list[McServerConfig] = Field(
         default_factory=list,
@@ -202,6 +518,16 @@ class GeneralConfig(PluginConfigBase):
         json_schema_extra={
             "label": "MC 服务器列表",
             "hint": "点「添加项目」逐个填写服务器连接信息",
+            "i18n": {
+                "en-US": {
+                    "label": "MC server list",
+                    "hint": "MC server list (click 'Add item' and fill in each server's connection info)",
+                },
+                "ja-JP": {
+                    "label": "MC サーバーリスト",
+                    "hint": "MC サーバーリスト（「項目を追加」をクリックして、各サーバーの接続情報を順に入力）",
+                },
+            },
         },
     )
 
