@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 _HISTORY_MAX_MESSAGES = 12
 # 人格缓存时长（秒）
 _PERSONA_CACHE_TTL = 60
+# 游戏内对话使用的模型任务槽；不指定时 SDK 会落到 utils 槽。
+# 任务槽只能通过 task_name 指定：model/model_name 表示具体模型名，
+# 传槽名会报「未找到名为 'xxx' 的模型」。
+_LLM_TASK_NAME = "replyer"
 
 
 class AIChatService:
@@ -100,7 +104,7 @@ class AIChatService:
         reply = ""
         try:
             result: dict[str, Any] = await self._plugin.ctx.llm.generate(
-                prompt=messages
+                prompt=messages, task_name=_LLM_TASK_NAME
             )
             reply = str((result or {}).get("response") or "").strip()
         except Exception as e:

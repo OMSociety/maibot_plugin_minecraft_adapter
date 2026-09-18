@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.1] - 2026-09-18
+
+### 🐛 修复
+- 游戏内 AI 对话显式使用 `replyer` 模型任务槽。此前未指定任务槽，由 SDK 兜底落到 `utils` 槽，与麦麦日常回复所用模型不一致。
+
+---
+
 ## [1.3.0] - 2026-09-14
 
 ### ✨ 新增
