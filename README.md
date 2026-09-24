@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/OMSociety/maibot_plugin_minecraft_adapter/main/logo.png" width="120" alt="Minecraft 聊天适配器 Logo" />
 
-# ⛏️ Minecraft 聊天适配器
+# Minecraft 聊天适配器
 
 **连接 Minecraft 服务器与 MaiBot** —— 游戏内 AI 聊天 · 跨平台消息互通 · 服务器远程管理
 
@@ -12,46 +12,46 @@
 [![Stars](https://img.shields.io/github/stars/OMSociety/maibot_plugin_minecraft_adapter)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/stargazers)
 [![Issues](https://img.shields.io/github/issues/OMSociety/maibot_plugin_minecraft_adapter)](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/issues)
 
-[✨ 核心特性](#-核心特性) • [📖 功能概览](#-功能概览) • [🚀 快速开始](#-快速开始) • [⚙️ 配置项说明](#️-配置项说明) • [⌨️ 命令](#️-命令) • [⚠️ 常见问题](#️-常见问题) • [📝 更新日志](CHANGELOG.md)
+[核心特性](#核心特性) • [功能概览](#功能概览) • [快速开始](#快速开始) • [配置项说明](#配置项说明) • [命令](#命令) • [常见问题](#常见问题) • [更新日志](CHANGELOG.md)
 
 </div>
 
-> 🎨 本项目由 AstrBot 插件 [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 迁移而来，改为 MaiBot 插件。
+> 本项目由 AstrBot 插件 [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 迁移而来，改为 MaiBot 插件。
 >
-> 孪生项目（MC 服务端模组）：[AstrBotAdapter_NeoForge](https://github.com/OMSociety/AstrBotAdapter_NeoForge)（NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
+> **孪生项目（MC 服务端模组）：**[AstrBotAdapter_NeoForge](https://github.com/OMSociety/AstrBotAdapter_NeoForge)（NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
 
 ---
 
-## ✨ 核心特性
+## 核心特性
 
 | 特性 | 说明 |
 |------|------|
-| 🎮 **AI 聊天** | 游戏内玩家直接和 bot 对话，回复语气继承 MaiBot 全局人格 |
-| 🔁 **消息互通** | MC 服务器 ↔ 外部群/私聊双向转发，支持自定义格式与进出提示 |
-| 🖥️ **服务器管理** | 状态查询 / 在线玩家 / 玩家详情 / 远程指令，信息可渲染为图片 |
-| 🛡️ **指令安全** | 远程指令与自定义指令均支持白名单/黑名单，`/mc cmd` 为操作员级命令 |
-| 🔗 **群友绑定** | 群成员自助把 QQ 绑定到游戏 ID，服务端自动写入白名单；Java 版与基岩版可各绑一条（需模组 AstrBotAdapter_NeoForge v1.2.0+） |
+| **AI 聊天** | 游戏内玩家直接和 bot 对话，回复语气继承 MaiBot 全局人格 |
+| **消息互通** | MC 服务器 ↔ 外部群/私聊双向转发，支持自定义格式与进出提示 |
+| **服务器管理** | 状态查询 / 在线玩家 / 玩家详情 / 远程指令，信息可渲染为图片 |
+| **指令安全** | 远程指令与自定义指令均支持白名单/黑名单，`/mc cmd` 为操作员级命令 |
+| **群友绑定** | 群成员自助把 QQ 绑定到游戏 ID，服务端自动写入白名单；Java 版与基岩版可各绑一条（需模组 AstrBotAdapter_NeoForge v1.2.0+） |
 
 ---
 
-## 📖 功能概览
+## 功能概览
 
-### 🎮 游戏内 AI 聊天
+### 游戏内 AI 聊天
 玩家在 MC 游戏里说话，`CHAT_REQUEST` 经 WebSocket 送达插件，插件直连 `ctx.llm.generate` 生成回复并回传游戏内。自动读取 MaiBot 全局人格，语气与日常聊天一致。
 
-### 🔁 跨平台消息互通
+### 跨平台消息互通
 - **MC → 外部**：MC 玩家聊天 / 进出提示按 `forward_chat_format` 格式化后转发到目标会话。
 - **外部 → MC**：目标会话里带 `auto_forward_prefix` 前缀的消息转发到 MC。
 
-> ⚠️ **两条线独立**：`enable_ai_chat`（游戏内 AI 聊天）和 `forward_chat_to_astrbot`（互通到外部会话）是**两条不同消息线**、可同时开。想让玩家聊天显示到外部会话，必须让聊天走**转发线**（`MESSAGE_FORWARD`）；若被当 AI 聊天，回复发生在游戏内、不进外部会话。目标会话的填法见[配置项说明](#️-配置项说明)。
+> **两条线独立**：`enable_ai_chat`（游戏内 AI 聊天）和 `forward_chat_to_astrbot`（互通到外部会话）是**两条不同消息线**、可同时开。想让玩家聊天显示到外部会话，必须让聊天走**转发线**（`MESSAGE_FORWARD`）；若被当 AI 聊天，回复发生在游戏内、不进外部会话。目标会话的填法见[配置项说明](#配置项说明)。
 
-### 🖥️ 服务器远程管理
+### 服务器远程管理
 `/mc status` / `/mc list` / `/mc player` 查询服务器状态、在线玩家、玩家详情，默认渲染为精美图片卡片；`/mc cmd` 远程执行指令（白名单 + 操作员级双重校验）。
 
-### 🛡️ 指令安全
+### 指令安全
 远程指令默认白名单（`["say","list","weather","time"]`），`/mc cmd` **和自定义指令**均为操作员级命令，只有配置了 operator 权限的用户能执行。
 
-### 🔗 群友绑定（白名单自助）
+### 群友绑定（白名单自助）
 群成员在目标会话里自助绑定，服务端把游戏 ID 写进白名单，省去手动 `whitelist add`：
 
 - `/mc bind <游戏ID>` —— 绑定 Java 版游戏 ID 并加入白名单
@@ -63,14 +63,14 @@
 绑定按「平台 + 用户 ID + 绑定类型」记账，任何人只能操作自己的绑定；回复里不会出现他人 QQ 号。
 **同一个群友可以同时绑定 Java 版与基岩版各一条**，两条白名单条目并存，可分别更换或解除。
 
-> ⚠️ **双版本兼容**：绑定功能依赖服务端模组的能力声明（`binding.v1`），**需要 AstrBotAdapter_NeoForge v1.2.0+**。插件在每次连接建立时自动探测能力，不依赖版本号：
+> **双版本兼容**：绑定功能依赖服务端模组的能力声明（`binding.v1`），**需要 AstrBotAdapter_NeoForge v1.2.0+**。插件在每次连接建立时自动探测能力，不依赖版本号：
 > - 旧版 **AstrBotAdapter_Forge（v1.0.0）** 没有该能力 → 绑定命令会明确提示需要升级模组，`/mc help` 也不会列出绑定命令，**其余功能（AI 聊天、消息互通、状态查询、远程指令）完全不受影响**；
 > - 能力探测失败（服务不可达/响应异常）时按「不支持」处理，同样只是拒绝绑定，不会影响连接与其它命令。
 > - 「Java 版与基岩版双绑定」由 AstrBotAdapter_NeoForge 提供；连接能力更少、不支持双绑定的旧服务端模组时，`/mc mybind` 会回退为单条展示，其余绑定功能仍可用。
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 第一步：准备 MC 服务端插件
 
@@ -79,15 +79,7 @@
 
 ### 第二步：在 MaiBot 安装
 
-**方式一：插件市场**
-- MaiBot WebUI → 插件市场 → 搜索 `minecraft_adapter`
-
-**方式二：手动安装**
-- 克隆仓库到 MaiBot 的 `plugins/` 目录：
-
-```bash
-git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugins/maibot_plugin_minecraft_adapter
-```
+MaiBot WebUI → 插件市场 → 搜索 `minecraft_adapter`
 
 ### 第三步：配置
 
@@ -103,7 +95,7 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 
 ---
 
-## ⚙️ 配置项说明
+## 配置项说明
 
 | 分组 | 配置项 | 类型 | 默认值 | 说明 |
 |:-----|:-------|:-----|:-------|:-----|
@@ -127,11 +119,11 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | 群友绑定 | `bind_geyser_enabled` | bool | `true` | 基岩版绑定开关（`/mc geyserbind`） |
 | 群友绑定 | `bind_unbind_enabled` | bool | `true` | 解绑开关（`/mc unbind`） |
 
-> 💡 **`/mc cmd` 为操作员级命令**：需在 MaiBot 的 `[plugin].permission` 配置操作员列表（如 `qq:123456789`）后才能执行。
+> **`/mc cmd` 为操作员级命令**：需在 MaiBot 的 `[plugin].permission` 配置操作员列表（如 `qq:123456789`）后才能执行。
 >
-> 💡 **目标会话用 Session ID**：`target_sessions` 填的是 MaiBot 给每个群/私聊分配的唯一 **Session ID**（重启不变，在 MaiBot WebUI「**聊天管理**」点开会话详情查看），**不是用户 ID、也不是 AstrBot 的 UMO**。
+> **目标会话用 Session ID**：`target_sessions` 填的是 MaiBot 给每个群/私聊分配的唯一 **Session ID**（重启不变，在 MaiBot WebUI「**聊天管理**」点开会话详情查看），**不是用户 ID、也不是 AstrBot 的 UMO**。
 >
-> 💡 **自定义指令为操作员级**：`custom_cmd_list` 与 `/mc cmd` 一样**仅操作员可触发**（需在 `[plugin].permission` 配置操作员，格式 `平台:裸ID`）。映射出的实际指令名（如 `tp`/`give`）须同时加入 `cmd_list` 白名单；**黑白名单只约束命令名（第一个词），不约束参数**——`say`/`execute` 这类"参数即效果"的指令要靠操作员鉴权兜底。
+> **自定义指令为操作员级**：`custom_cmd_list` 与 `/mc cmd` 一样**仅操作员可触发**（需在 `[plugin].permission` 配置操作员，格式 `平台:裸ID`）。映射出的实际指令名（如 `tp`/`give`）须同时加入 `cmd_list` 白名单；**黑白名单只约束命令名（第一个词），不约束参数**——`say`/`execute` 这类"参数即效果"的指令要靠操作员鉴权兜底。
 
 **快速配置模板（单个服务器）：**
 
@@ -162,7 +154,7 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 
 ---
 
-## ⌨️ 命令
+## 命令
 
 | 命令 | 说明 | 权限 |
 |:-----|:-----|:-----|
@@ -177,13 +169,13 @@ git clone https://github.com/OMSociety/maibot_plugin_minecraft_adapter.git plugi
 | `/mc unbind` | 解除全部绑定并移出白名单 | 公开 |
 | `/mc geyserunbind` | 只解除基岩版绑定，保留 Java 版 | 公开 |
 
-> 💡 **多服务器选择**：当前会话关联多个服务器时，需要区分目标的指令会显示服务器列表，发送编号选择目标。
+> **多服务器选择**：当前会话关联多个服务器时，需要区分目标的指令会显示服务器列表，发送编号选择目标。
 
-> 💡 **绑定命令与模组版本**：绑定类命令仅在服务端模组声明 `binding.v1` 能力时可用（AstrBotAdapter_NeoForge v1.2.0+）；连接旧版 AstrBotAdapter_Forge 时命令会提示升级模组，`/mc help` 中也不会列出这几条命令。
+> **绑定命令与模组版本**：绑定类命令仅在服务端模组声明 `binding.v1` 能力时可用（AstrBotAdapter_NeoForge v1.2.0+）；连接旧版 AstrBotAdapter_Forge 时命令会提示升级模组，`/mc help` 中也不会列出这几条命令。
 
 ---
 
-## ⚠️ 常见问题
+## 常见问题
 
 **Q：目标会话怎么填？**
 A：在插件配置 `target_sessions` 里填目标会话的 **Session ID**（不是 AstrBot 的 UMO）。在 MaiBot WebUI「**聊天管理**」里，点开对应群/私聊的会话详情就能看到它的 Session ID，复制填入即可。
@@ -214,26 +206,16 @@ A：首次渲染会从第三方镜像下载字体，并访问 Mojang API / 头�
 **Q：数据存在哪？**
 A：渲染缓存/字体在插件 `runtime_dir`。
 
----
+## 支持与致谢
 
-## ⭐ 支持本项目
-
-如果这个插件对你有帮助，欢迎点亮 Star ⭐，有问题和建议请提交 [Issue](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/issues) 或 [Pull Request](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/pulls)。
-
-## 🙏 致谢
+如果这个插件对你有帮助，欢迎点亮 Star，有问题和建议请提交 [Issue](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/issues) 或 [Pull Request](https://github.com/OMSociety/maibot_plugin_minecraft_adapter/pulls)。
 
 - [MaiBot](https://github.com/Mai-with-u/MaiBot) 开源聊天机器人框架
 - [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 上游 AstrBot 插件
 - [AstrBotAdapter](https://github.com/railgun19457/AstrBotAdapter) MC 服务端插件
 
----
-
-## 📜 许可证
+## 许可证与作者
 
 本项目采用 **AGPL-3.0** 开源协议。
-
----
-
-## 👤 作者
 
 [@OMSociety](https://github.com/OMSociety)
