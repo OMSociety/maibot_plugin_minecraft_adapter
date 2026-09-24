@@ -97,27 +97,44 @@ MaiBot WebUI → 插件市场 → 搜索 `minecraft_adapter`
 
 ## 配置项说明
 
-| 分组 | 配置项 | 类型 | 默认值 | 说明 |
-|:-----|:-------|:-----|:-------|:-----|
-| 服务器连接 | `server_id` | string | `"my_server"` | 服务器唯一标识 |
-| 服务器连接 | `host` | string | `"localhost"` | MC 服务端插件地址 |
-| 服务器连接 | `port` | int | `8765` | MC 服务端端口 |
-| 服务器连接 | `token` | string | `""` | 认证 Token |
-| 消息转发 | `enable_ai_chat` | bool | `true` | 游戏内 AI 聊天开关 |
-| 消息转发 | `text2image` | bool | `true` | 服务器信息渲染为图片 |
-| 消息转发 | `forward_chat_to_astrbot` | bool | `true` | 转发 MC 聊天到目标会话 |
-| 消息转发 | `forward_chat_format` | string | `"<{player}> {message}"` | 转发格式 |
-| 消息转发 | `forward_join_leave_to_astrbot` | bool | `false` | 转发玩家进出提示 |
-| 消息转发 | `target_sessions` | list | `[]` | 目标会话的 Session ID 列表（WebUI「聊天管理」查看） |
-| 消息转发 | `auto_forward_prefix` | string | `"*"` | 转发前缀（留空转发全部） |
-| 消息转发 | `mark_option` | string | `"text"` | 转发成功提醒（text/none） |
-| 远程指令 | `cmd_enabled` | bool | `true` | 远程指令总开关 |
-| 远程指令 | `cmd_white_black_list` | string | `"white"` | white/black/none |
-| 远程指令 | `cmd_list` | list | `["say","list","weather","time"]` | 指令名单 |
-| 远程指令 | `custom_cmd_list` | list | `[]` | 自定义指令映射（实际指令名需在白名单内；仅操作员可触发） |
-| 群友绑定 | `bind_enabled` | bool | `true` | 群友绑定总开关（需模组 `binding.v1` 能力） |
-| 群友绑定 | `bind_geyser_enabled` | bool | `true` | 基岩版绑定开关（`/mc geyserbind`） |
-| 群友绑定 | `bind_unbind_enabled` | bool | `true` | 解绑开关（`/mc unbind`） |
+### 服务器连接
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|:------|:-----|:-------|:-----|
+| `server_id` | string | `"my_server"` | 服务器唯一标识 |
+| `host` | string | `"localhost"` | MC 服务端插件地址 |
+| `port` | int | `8765` | MC 服务端端口 |
+| `token` | string | `""` | 认证 Token |
+
+### 消息转发
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|:------|:-----|:-------|:-----|
+| `enable_ai_chat` | bool | `true` | 游戏内 AI 聊天开关 |
+| `text2image` | bool | `true` | 服务器信息渲染为图片 |
+| `forward_chat_to_astrbot` | bool | `true` | 转发 MC 聊天到目标会话 |
+| `forward_chat_format` | string | `"<{player}> {message}"` | 转发格式 |
+| `forward_join_leave_to_astrbot` | bool | `false` | 转发玩家进出提示 |
+| `target_sessions` | list | `[]` | 目标会话的 Session ID 列表（WebUI「聊天管理」查看） |
+| `auto_forward_prefix` | string | `"*"` | 转发前缀（留空转发全部） |
+| `mark_option` | string | `"text"` | 转发成功提醒（text/none） |
+
+### 远程指令
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|:------|:-----|:-------|:-----|
+| `cmd_enabled` | bool | `true` | 远程指令总开关 |
+| `cmd_white_black_list` | string | `"white"` | white/black/none |
+| `cmd_list` | list | `["say","list","weather","time"]` | 指令名单 |
+| `custom_cmd_list` | list | `[]` | 自定义指令映射（实际指令名需在白名单内；仅操作员可触发） |
+
+### 群友绑定
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|:------|:-----|:-------|:-----|
+| `bind_enabled` | bool | `true` | 群友绑定总开关（需模组 `binding.v1` 能力） |
+| `bind_geyser_enabled` | bool | `true` | 基岩版绑定开关（`/mc geyserbind`） |
+| `bind_unbind_enabled` | bool | `true` | 解绑开关（`/mc unbind`） |
 
 > **`/mc cmd` 为操作员级命令**：需在 MaiBot 的 `[plugin].permission` 配置操作员列表（如 `qq:123456789`）后才能执行。
 >
