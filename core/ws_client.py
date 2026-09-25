@@ -76,10 +76,30 @@ class WebSocketClient:
             return str(text)
         return str(text).replace(self.token, "***")
 
+    async def _close_ws(self):
+        """关闭并丢弃当前 WebSocket 连接。
+
+        握手失败（超时/首条消息不是 CONNECTION_ACK/解析异常）时必须调用：
+        只把 ``self._ws`` 丢掉会让已升级的连接继续被 connector 持有，
+        重连循环每失败一次就净泄漏一条连接。
+        """
+        ws, self._ws = self._ws, None
+        if ws is None or ws.closed:
+            return
+        try:
+            await ws.close()
+        except Exception as e:  # noqa: BLE001 - 关闭失败不应影响重连
+            logger.debug(
+                f"[MC-{self.server_id}] 关闭残留连接异常: {self._redact(str(e))}"
+            )
+
     async def connect(self) -> bool:
         """建立 WebSocket 连接"""
         if self._connected:
             return True
+
+        # 先清掉上一轮可能残留的连接，避免被新连接覆盖后无人关闭
+        await self._close_ws()
 
         try:
             if self._session is None:
@@ -130,13 +150,21 @@ class WebSocketClient:
                     return True
 
             logger.error(f"[MC-{self.server_id}] 接收 CONNECTION_ACK 失败: {msg}")
+            await self._close_ws()
             return False
 
+        except asyncio.CancelledError:
+            # 握手期间被取消（停机 / 任务被 cancel）也要释放已升级的连接：
+            # CancelledError 继承 BaseException，不会被 except Exception 捕获
+            await self._close_ws()
+            raise
         except TimeoutError:
             logger.error(f"[MC-{self.server_id}] 连接超时")
+            await self._close_ws()
             return False
         except Exception as e:
             logger.error(f"[MC-{self.server_id}] 连接失败: {self._redact(str(e))}")
+            await self._close_ws()
             return False
 
     async def disconnect(self):
@@ -148,9 +176,7 @@ class WebSocketClient:
             self._heartbeat_task.cancel()
             self._heartbeat_task = None
 
-        if self._ws and not self._ws.closed:
-            await self._ws.close()
-            self._ws = None
+        await self._close_ws()
 
         if self._session:
             await self._session.close()
@@ -189,6 +215,8 @@ class WebSocketClient:
                 self._connected = False
                 if self._heartbeat_task:
                     self._heartbeat_task.cancel()
+                # 接收循环退出即连接已不可用：立即关闭，别留给下一轮 connect 覆盖
+                await self._close_ws()
 
                 if self.on_disconnect and self._running:
                     await self.on_disconnect("连接丢失")

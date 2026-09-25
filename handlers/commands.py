@@ -67,6 +67,9 @@ class CustomCommandParser:
         """使用映射字符串初始化
 
         格式: "trigger <&param&><<>>actual_command {param} {sender}"
+
+        ``{sender}`` 会被替换成发送者在该服务器上的绑定游戏 ID（未绑定/查询失败时为
+        空串）；只有模板真正引用 ``{sender}`` 时调用方才需要去查绑定。
         """
         self.mappings: list[dict[str, object]] = []
         for mapping in mappings:
@@ -105,6 +108,18 @@ class CustomCommandParser:
             "param_names": param_names,
             "command_template": command_part,
         }
+
+    @property
+    def uses_sender(self) -> bool:
+        """是否有映射模板引用了 ``{sender}``。
+
+        调用方据此决定是否需要解析发送者的绑定游戏 ID（不需要时省一次 REST 查询）。
+        """
+        for mapping in self.mappings:
+            template = str(mapping.get("command_template") or "")
+            if "{sender}" in template or "<&sender&>" in template:
+                return True
+        return False
 
     def match(
         self, text: str, sender_mc_name: str | None = None
@@ -177,6 +192,16 @@ class PendingAction:
 # Pending actions expire after 60 seconds
 PENDING_ACTION_TIMEOUT = 60
 
+# 自定义指令模板里 {sender} 的绑定名缓存时长（秒）。
+# 模板匹配在每条入站消息的处理路径上，不能每次都打一次绑定查询；
+# 代价是用户刚绑定/解绑后最多有这么久的名字滞后。
+SENDER_NAME_CACHE_TTL = 30
+
+# {sender} 缓存条目上限：到上限先清过期项，仍超限则整体清空。
+# 键含 user_id，不设上限就会随「出现过的用户数」单调增长（慢泄漏）；
+# 清理后最多多查一次绑定，代价可接受。
+SENDER_NAME_CACHE_MAX = 256
+
 
 class CommandHandler:
     """所有 mc 命令的处理器"""
@@ -195,6 +220,8 @@ class CommandHandler:
         self._custom_parsers: dict[str, CustomCommandParser] = {}
         # Pending actions per stream_id
         self._pending_actions: dict[str, PendingAction] = {}
+        # {sender} 解析缓存： (server_id, platform, user_id) -> (时间戳, 游戏 ID)
+        self._sender_name_cache: dict[tuple[str, str, str], tuple[float, str]] = {}
         # 绑定类待选动作的转发处理器（由插件在装配阶段注入 BindingHandler）
         self.pending_dispatcher: (
             Callable[["PendingAction", int, CommandContext], Awaitable[RenderResult]]
@@ -307,7 +334,7 @@ class CommandHandler:
             if usage and first_missing_usage is None:
                 first_missing_usage = usage
 
-            # Get sender's bound MC name
+            # 先判触发词是否命中：未命中就不查绑定、不做鉴权
             result = parser.match(text)
             if result:
                 command, _ = result
@@ -323,10 +350,20 @@ class CommandHandler:
                         "❌ 自定义指令仅操作员可触发，请先在 [plugin].permission 配置操作员",
                         is_image=False,
                     )
-                matched_command = command
                 server = self.server_manager.get_server(server_id)
                 if not server or not server.connected:
                     continue
+
+                # Get sender's bound MC name：仅当模板引用 {sender} 时才查绑定
+                # （未绑定/查询失败 → 空串）
+                if parser.uses_sender:
+                    resolved = parser.match(
+                        text, await self._resolve_sender_mc_name(ctx, server_id)
+                    )
+                    if resolved is not None:
+                        command, _ = resolved
+
+                matched_command = command
 
                 # Build targets for this server (reuse common method)
                 targets = await self._build_server_targets(server)
@@ -344,6 +381,75 @@ class CommandHandler:
             )
 
         return None
+
+    async def _resolve_sender_mc_name(
+        self, ctx: CommandContext, server_id: str
+    ) -> str:
+        """取发送者在指定服务器上的绑定游戏 ID（自定义指令模板的 {sender}）。
+
+        未绑定、查询失败或服务器不可用时返回空串。结果按
+        (server_id, platform, user_id) 缓存 ``SENDER_NAME_CACHE_TTL`` 秒
+        （条目数上限 ``SENDER_NAME_CACHE_MAX``，到限即瘦身/清空）：
+        模板匹配在每条入站消息路径上，不能每次都打一次绑定查询。
+        """
+        server = self.server_manager.get_server(server_id)
+        if not server or not server.connected:
+            return ""
+
+        cache_key = (server_id, ctx.platform, ctx.user_id)
+        now = time.time()
+        cached = self._sender_name_cache.get(cache_key)
+        if cached is not None and now - cached[0] < SENDER_NAME_CACHE_TTL:
+            return cached[1]
+
+        _ok, data, _code, _err = await server.rest_client.lookup_binding(
+            platform=ctx.platform, user_id=ctx.user_id
+        )
+        name = self._game_name_from_binding(data)
+        if len(self._sender_name_cache) >= SENDER_NAME_CACHE_MAX:
+            self._prune_sender_name_cache(now)
+        self._sender_name_cache[cache_key] = (now, name)
+        return name
+
+    def _prune_sender_name_cache(self, now: float) -> None:
+        """缓存到上限时瘦身：先清过期项，仍超限则整体清空。
+
+        调用方在瘦身之后才写入当前条目，所以本次查询结果不会被这次清理带走。
+        """
+        self._sender_name_cache = {
+            key: value
+            for key, value in self._sender_name_cache.items()
+            if now - value[0] < SENDER_NAME_CACHE_TTL
+        }
+        if len(self._sender_name_cache) >= SENDER_NAME_CACHE_MAX:
+            self._sender_name_cache.clear()
+
+    @staticmethod
+    def _game_name_from_binding(data: object) -> str:
+        """从 /bindings/lookup 的响应里取一个可用的游戏 ID（优先 Java 版）。
+
+        新版服务端在只绑了基岩版时仍可能返回 4004（没有 Java 版绑定）但
+        ``bindings`` 里有内容，因此不能只看 ``gameName``。
+        """
+        if not isinstance(data, dict):
+            return ""
+        bindings = data.get("bindings")
+        if isinstance(bindings, list):
+            java_name = ""
+            geyser_name = ""
+            for item in bindings:
+                if not isinstance(item, dict):
+                    continue
+                item_name = str(item.get("gameName") or "")
+                if not item_name:
+                    continue
+                if str(item.get("kind") or "") == "geyser":
+                    geyser_name = geyser_name or item_name
+                elif not java_name:
+                    java_name = item_name
+            if java_name or geyser_name:
+                return java_name or geyser_name
+        return str(data.get("gameName") or "")
 
     async def handle_help(self, ctx: CommandContext) -> RenderResult:
         """显示帮助信息"""
@@ -956,6 +1062,7 @@ class CommandHandler:
         stream_id: str,
         action: str = "",
         args: dict | None = None,
+        servers: list | None = None,
     ) -> tuple[object | None, str]:
         """Resolve the target server for a command.
 
@@ -964,8 +1071,12 @@ class CommandHandler:
         return the server choice prompt. Returns (None, prompt_msg) when pending.
         Returns (None, error_msg) on error.
         Returns (server, "") on success.
+
+        ``servers`` 是调用方已按自己的口径过滤好的候选列表（缺省 = 本会话全部已连接
+        服务器）。待选动作与提示列表都取自它，保证「提示里列出的就是能选的」。
         """
-        servers = self._get_session_servers(stream_id)
+        if servers is None:
+            servers = self._get_session_servers(stream_id)
         if not servers:
             return (
                 None,
@@ -1064,7 +1175,12 @@ class BindingHandler:
         return []
 
     def _available_servers(self, stream_id: str, bedrock: bool) -> list:
-        """筛出本会话中「可用绑定」的服务器：开关开 + 能力支持（+ 基岩版开关）。"""
+        """筛出本会话中「可用绑定」的服务器：在线 + 开关开 + 能力支持（+ 基岩版开关）。
+
+        离线服务器必须在这里就剔除：它既不该出现在选号提示里，也不该能被选中
+        （选中只会拿到「服务器未连接」）。这一条与其余门禁同源，
+        保证「提示里列出的 = 能执行的」。
+        """
         servers = []
         for server in self._all_session_servers(stream_id):
             config = self.get_server_config(server.server_id)
@@ -1074,16 +1190,30 @@ class BindingHandler:
                 continue
             if bedrock and not config.bind_geyser_enabled:
                 continue
+            if not server.connected:
+                continue
             servers.append(server)
         return servers
 
     def _target_server(
-        self, stream_id: str, bedrock: bool
+        self,
+        stream_id: str,
+        bedrock: bool,
+        game_name: str = "",
+        action: str = "",
+        kind: str = "",
     ) -> tuple[object | None, str]:
-        """解析目标服务器：0 个/多个/单个 三种结果（多个时写入待选动作）。"""
+        """解析目标服务器：0 个/多个/单个 三种结果（多个时写入待选动作）。
+
+        多个可用服务器时写入的待选动作必须带全「本次调用的真实意图与原始参数」
+        （action + game_name/kind）：用户回编号后由 :meth:`handle_selection` 在
+        已选定的服务器上直接执行，不再重新解析目标服务器。
+        """
         servers = self._available_servers(stream_id, bedrock)
         if not servers:
-            # 逐个开关给出具体原因（文案顺序：未启用绑定 > 未启用基岩版 > 能力不支持）
+            # 给出具体原因（文案顺序：未启用绑定 > 未启用基岩版 > 能力未探测 >
+            # 未连接 > 能力不支持）：前四层要求「所有候选服务器都卡在这一层」，
+            # 「未连接」一层只要存在「门禁与能力都过、只是没连上」的服务器即成立。
             all_servers = self._all_session_servers(stream_id)
             if not all_servers:
                 return None, BIND_MSG_NO_SERVER
@@ -1101,17 +1231,31 @@ class BindingHandler:
                 return None, BIND_MSG_GEYSER_DISABLED
             if all(not s.capabilities.probed for s in all_servers):
                 return None, BIND_MSG_PROBE_FAILED
+            # 门禁与能力都过、只是没连上：这是可重试的「未连接」，
+            # 不能说成「模组不支持绑定」（会让人去升级模组）
+            if any(s.supports_binding and not s.connected for s in all_servers):
+                return None, BIND_MSG_NOT_CONNECTED
             return None, BIND_MSG_UNSUPPORTED
 
         if len(servers) > 1:
             unavailable = len(self._all_session_servers(stream_id)) - len(servers)
-            action = "bind:geyser" if bedrock else "bind:java"
+            args: dict[str, Any] = {"bedrock": bedrock, "game_name": game_name}
+            if kind:
+                args["kind"] = kind
             server, message = self._resolve_server(
-                stream_id, action=action, args={"bedrock": bedrock}
+                stream_id,
+                action=action or ("bind:geyser" if bedrock else "bind:java"),
+                args=args,
+                # 待选动作只带过滤后的可用服务器：否则提示里会列出（也就能选中）
+                # 绑定门禁关掉的服务器，用户选完只能拿到服务端错误
+                servers=servers,
             )
             if not server:
                 if "⚠️" in message and unavailable > 0:
-                    message += f"\n（已按绑定功能开关与能力过滤掉 {unavailable} 个不可用服务器）"
+                    message += (
+                        f"\n（已按绑定功能开关、能力与连接状态过滤掉 "
+                        f"{unavailable} 个不可用服务器）"
+                    )
                 return None, message
             return server, ""
 
@@ -1146,10 +1290,19 @@ class BindingHandler:
         if not game_name:
             return RenderResult(BIND_MSG_INVALID_NAME, is_image=False)
 
-        server, message = self._target_server(ctx.stream_id, bedrock)
+        server, message = self._target_server(
+            ctx.stream_id, bedrock, game_name=game_name
+        )
         if not server:
             return RenderResult(message, is_image=False)
 
+        return await self._bind_on_server(ctx, server, game_name, bedrock)
+
+    async def _bind_on_server(
+        self, ctx: CommandContext, server, game_name: str, bedrock: bool
+    ) -> RenderResult:
+        """在**已选定**的服务器上执行绑定（多服务器选号后走这里）。"""
+        game_name = (game_name or "").strip()
         if not GAME_NAME_PATTERN.match(game_name):
             return RenderResult(BIND_MSG_INVALID_NAME, is_image=False)
 
@@ -1195,10 +1348,19 @@ class BindingHandler:
         return await self._unbind(ctx, kind="geyser")
 
     async def _unbind(self, ctx: CommandContext, kind: str) -> RenderResult:
-        server, message = self._target_server(ctx.stream_id, bedrock=False)
+        # 目标筛选口径保持与绑定一致（bedrock=False 只按绑定总开关/能力过滤）
+        server, message = self._target_server(
+            ctx.stream_id, bedrock=False, action="bind:unbind", kind=kind
+        )
         if not server:
             return RenderResult(message, is_image=False)
 
+        return await self._unbind_on_server(ctx, server, kind)
+
+    async def _unbind_on_server(
+        self, ctx: CommandContext, server, kind: str
+    ) -> RenderResult:
+        """在**已选定**的服务器上执行解绑。"""
         if not server.connected:
             return RenderResult(BIND_MSG_NOT_CONNECTED, is_image=False)
 
@@ -1243,10 +1405,16 @@ class BindingHandler:
 
     async def handle_mybind(self, ctx: CommandContext) -> RenderResult:
         """查询当前账号的绑定状态（只涉及发送者自己的账号）。"""
-        server, message = self._target_server(ctx.stream_id, bedrock=False)
+        server, message = self._target_server(
+            ctx.stream_id, bedrock=False, action="bind:mybind"
+        )
         if not server:
             return RenderResult(message, is_image=False)
 
+        return await self._mybind_on_server(ctx, server)
+
+    async def _mybind_on_server(self, ctx: CommandContext, server) -> RenderResult:
+        """在**已选定**的服务器上查询绑定状态。"""
         if not server.connected:
             return RenderResult(BIND_MSG_NOT_CONNECTED, is_image=False)
 
@@ -1318,16 +1486,20 @@ class BindingHandler:
         server = pending.servers[idx - 1]
         if server is None:  # pragma: no cover - 防御性分支
             return RenderResult("❌ 未知操作", is_image=False)
-        if action == "bind:geyser":
-            return await self.handle_bind(
-                ctx, str(args.get("game_name") or ""), bedrock=True
-            )
+        # 用户已选定服务器：直接在这台上执行，不再调 _target_server 重新解析
+        # （重新解析会再次命中「多个服务器」，把用户困在选号循环里）
         if action == "bind:java":
-            return await self.handle_bind(
-                ctx, str(args.get("game_name") or ""), bedrock=False
+            return await self._bind_on_server(
+                ctx, server, str(args.get("game_name") or ""), bedrock=False
+            )
+        if action == "bind:geyser":
+            return await self._bind_on_server(
+                ctx, server, str(args.get("game_name") or ""), bedrock=True
             )
         if action == "bind:unbind":
-            return await self.handle_unbind(ctx)
+            return await self._unbind_on_server(
+                ctx, server, str(args.get("kind") or "all")
+            )
         if action == "bind:mybind":
-            return await self.handle_mybind(ctx)
+            return await self._mybind_on_server(ctx, server)
         return RenderResult("❌ 未知操作", is_image=False)

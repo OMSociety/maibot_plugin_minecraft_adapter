@@ -6,7 +6,6 @@
 """
 
 import asyncio
-import time
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -31,7 +30,6 @@ from maibot_plugin_minecraft_adapter.handlers.commands import (
     BindingHandler,
     CommandContext,
     CommandHandler,
-    PendingAction,
 )
 
 STREAM = "sess-1"
@@ -116,8 +114,8 @@ def _make_server(supports_binding: bool = True, connected: bool = True):
 def _make_handler(config: ServerConfig, server, resolve_calls: list | None = None):
     calls = resolve_calls if resolve_calls is not None else []
 
-    def resolve_server(stream_id, action="", args=None):
-        calls.append((stream_id, action, args))
+    def resolve_server(stream_id, action="", args=None, servers=None):
+        calls.append((stream_id, action, args, servers))
         return server, ""
 
     handler = BindingHandler(
@@ -490,72 +488,338 @@ def test_no_session_server():
 
 
 # ── 多服务器编号选择 ───────────────────────────────────
+#
+# 待选动作一律由真实命令入口（handle_bind / handle_unbind / handle_mybind →
+# CommandHandler._resolve_server_or_pending）产生，不手工构造 PendingAction：
+# 手工塞 args 会掩盖「待选动作没带 game_name / 真实 action」这类链路缺陷。
 
 
-def test_multi_server_prompts_for_selection():
+def _make_multi_server_env(
+    server_count: int = 2, config_overrides: dict | None = None
+):
+    """构造「一个会话关联多台服务器」的真实链路环境。
+
+    ``config_overrides``: {"sv3": {"bind_enabled": False}} —— 给个别服务器改门禁开关。
+    返回 (CommandHandler, BindingHandler, servers)。
+    """
+    servers = []
+    configs: dict[str, ServerConfig] = {}
+    for i in range(1, server_count + 1):
+        server = _make_server()
+        server.server_id = f"sv{i}"
+        servers.append(server)
+        configs[server.server_id] = ServerConfig(
+            server_id=server.server_id, target_sessions=[STREAM]
+        )
+    for server_id, overrides in (config_overrides or {}).items():
+        if server_id not in configs:
+            raise ValueError(f"unknown server_id: {server_id}")
+        configs[server_id] = ServerConfig(
+            server_id=server_id, target_sessions=[STREAM], **overrides
+        )
+
+    server_manager = MagicMock()
+    server_manager.get_all_servers.return_value = {s.server_id: s for s in servers}
+    server_manager.get_connected_servers.return_value = list(servers)
+    server_manager.get_server.side_effect = lambda sid: next(
+        (s for s in servers if s.server_id == sid), None
+    )
+
+    command_handler = CommandHandler(
+        server_manager=server_manager,
+        renderer=MagicMock(),
+        get_server_config=lambda sid: configs.get(sid),
+    )
+    binding = BindingHandler(
+        server_manager=server_manager,
+        get_server_config=lambda sid: configs.get(sid),
+        resolve_server=command_handler._resolve_server_or_pending,
+        session_servers=command_handler._get_session_servers_by,
+    )
+    command_handler.pending_dispatcher = binding.handle_selection
+    return command_handler, binding, servers
+
+
+def _make_multi_server_handler(action_recorder: list):
+    """只需观察「写进待选动作的 action / args」时用的轻量替身。"""
     server = _make_server()
     config = ServerConfig(server_id="sv1", target_sessions=[STREAM])
-    calls: list = []
-
     handler = BindingHandler(
         server_manager=MagicMock(),
         get_server_config=lambda sid: config,
-        resolve_server=lambda stream_id, action="", args=None: (
-            calls.append((action, args)) or None,
+        resolve_server=lambda stream_id, action="", args=None, servers=None: (
+            action_recorder.append((stream_id, action, args)) or None,
             "⚠️ 当前会话关联多个服务器，请发送编号选择:\n1. sv1\n2. sv2",
         ),
         session_servers=lambda stream_id, connected_only=False: [server, server],
     )
+    return handler, server
+
+
+def test_multi_server_prompts_for_selection_with_intent():
+    """两台可用服务器 → 回选号提示，且待选动作必须带真实意图与原始参数。
+
+    待选动作缺 game_name 时，用户回编号后会拿到「游戏 ID 只能包含…」且什么都不做。
+    """
+    calls: list = []
+    handler, server = _make_multi_server_handler(calls)
+
     result = asyncio.run(handler.handle_bind(CONTEXT, "Steve"))
-    assert result.text.startswith("⚠️ 请发送编号选择") or "编号选择" in result.text
-    assert calls and calls[0][0] == "bind:java"
+    assert "编号选择" in result.text
+    assert calls == [(STREAM, "bind:java", {"bedrock": False, "game_name": "Steve"})]
     server.rest_client.bind_player.assert_not_called()
 
 
-def test_selection_dispatch_keeps_game_name():
-    server = _make_server()
-    handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
-    pending = PendingAction(
-        action="bind:geyser",
-        args={"game_name": "Bedrock_1", "bedrock": True},
-        servers=[server],
-    )
-    result = asyncio.run(handler.handle_selection(pending, 1, CONTEXT))
+def test_multi_server_geyser_bind_pending_keeps_bedrock_intent():
+    calls: list = []
+    handler, _ = _make_multi_server_handler(calls)
+
+    result = asyncio.run(handler.handle_bind(CONTEXT, "Bedrock_1", bedrock=True))
+    assert "编号选择" in result.text
+    assert calls == [
+        (STREAM, "bind:geyser", {"bedrock": True, "game_name": "Bedrock_1"})
+    ]
+
+
+def test_multi_server_unbind_pending_carries_real_action():
+    """`/mc unbind` 与 `/mc geyserunbind` 必须写 bind:unbind（而不是 bind:java）。"""
+    calls: list = []
+    handler, _ = _make_multi_server_handler(calls)
+
+    asyncio.run(handler.handle_unbind(CONTEXT))
+    asyncio.run(handler.handle_geyserunbind(CONTEXT))
+    assert calls == [
+        (STREAM, "bind:unbind", {"bedrock": False, "game_name": "", "kind": "all"}),
+        (STREAM, "bind:unbind", {"bedrock": False, "game_name": "", "kind": "geyser"}),
+    ]
+
+
+def test_multi_server_mybind_pending_carries_real_action():
+    calls: list = []
+    handler, _ = _make_multi_server_handler(calls)
+
+    asyncio.run(handler.handle_mybind(CONTEXT))
+    assert calls == [(STREAM, "bind:mybind", {"bedrock": False, "game_name": ""})]
+
+
+def test_bind_selection_executes_on_chosen_server():
+    command_handler, binding, servers = _make_multi_server_env()
+
+    prompt = asyncio.run(binding.handle_bind(CONTEXT, "Steve"))
+    assert "编号选择" in prompt.text
+    assert all(s.rest_client.bind_player.await_count == 0 for s in servers)
+
+    result = asyncio.run(command_handler.handle_number_selection(CONTEXT, "2"))
     assert result.text.startswith("✅ 绑定成功")
-    kwargs = server.rest_client.bind_player.await_args.kwargs
+    assert servers[0].rest_client.bind_player.await_count == 0
+    kwargs = servers[1].rest_client.bind_player.await_args.kwargs
+    assert kwargs["game_name"] == "Steve"
+    assert kwargs["bedrock"] is False
+    assert kwargs["platform"] == "qq"
+    assert kwargs["user_id"] == USER_ID
+    assert command_handler.has_pending_action(STREAM) is False
+
+
+def test_geyser_bind_selection_keeps_game_name_and_bedrock():
+    command_handler, binding, servers = _make_multi_server_env()
+
+    prompt = asyncio.run(binding.handle_bind(CONTEXT, "Bedrock_1", bedrock=True))
+    assert "编号选择" in prompt.text
+
+    result = asyncio.run(command_handler.handle_number_selection(CONTEXT, "1"))
+    assert result.text.startswith("✅ 绑定成功")
+    kwargs = servers[0].rest_client.bind_player.await_args.kwargs
     assert kwargs["game_name"] == "Bedrock_1"
     assert kwargs["bedrock"] is True
 
 
-def test_selection_invalid_index_lists_choices():
-    server = _make_server()
-    handler, _ = _make_handler(ServerConfig(server_id="sv1"), server)
-    pending = PendingAction(
-        action="bind:java", args={"game_name": "Steve"}, servers=[server]
+def test_unbind_selection_calls_unbind_player():
+    command_handler, binding, servers = _make_multi_server_env()
+
+    prompt = asyncio.run(binding.handle_unbind(CONTEXT))
+    assert "编号选择" in prompt.text
+    assert all(s.rest_client.unbind_player.await_count == 0 for s in servers)
+
+    result = asyncio.run(command_handler.handle_number_selection(CONTEXT, "1"))
+    assert result.text.startswith("✅ 已解除绑定")
+    assert servers[0].rest_client.unbind_player.await_args.kwargs["kind"] == "all"
+    assert servers[1].rest_client.unbind_player.await_count == 0
+
+
+def test_bind_prompt_excludes_binding_disabled_servers():
+    """绑定门禁关掉的服务器不得出现在编号提示里，更不能被选中执行。
+
+    提示里列出全部已连接服务器、待选动作却只带过滤后列表（或反之），都会让
+    「提示里列出的 ≠ 能选的」——用户照提示选号只能拿到服务端错误。
+    """
+    command_handler, binding, servers = _make_multi_server_env(
+        server_count=3, config_overrides={"sv3": {"bind_enabled": False}}
     )
-    result = asyncio.run(handler.handle_selection(pending, 9, CONTEXT))
+
+    prompt = asyncio.run(binding.handle_bind(CONTEXT, "Steve"))
+    assert "编号选择" in prompt.text
+    assert "1. sv1" in prompt.text
+    assert "2. sv2" in prompt.text
+    assert "sv3" not in prompt.text
+    # 过滤说明与实际列出的条数必须一致（3 台里 1 台不合门禁）
+    assert "过滤掉 1 个不可用服务器" in prompt.text
+
+    pending = command_handler._pending_actions[STREAM]
+    assert [s.server_id for s in pending.servers] == ["sv1", "sv2"]
+
+    # 编号 3（sv3）无效 → 不执行任何绑定
+    result = asyncio.run(command_handler.handle_number_selection(CONTEXT, "3"))
+    assert "编号无效" in result.text
+    assert "sv3" not in result.text
+    assert all(s.rest_client.bind_player.await_count == 0 for s in servers)
+
+
+def test_geyser_bind_prompt_excludes_geyser_disabled_servers():
+    """只开了 Java 绑定的服务器，在 /mc geyserbind 的选号里同样不出现。"""
+    command_handler, binding, _servers = _make_multi_server_env(
+        server_count=3, config_overrides={"sv3": {"bind_geyser_enabled": False}}
+    )
+
+    prompt = asyncio.run(binding.handle_bind(CONTEXT, "Bedrock_1", bedrock=True))
+    assert "sv3" not in prompt.text
+    assert [s.server_id for s in command_handler._pending_actions[STREAM].servers] == [
+        "sv1",
+        "sv2",
+    ]
+
+
+def test_unbind_prompt_excludes_binding_disabled_servers():
+    """/mc unbind 的选号同样只列可用服务器（解绑与绑定共用同一套门禁口径）。"""
+    command_handler, binding, _servers = _make_multi_server_env(
+        server_count=3, config_overrides={"sv3": {"bind_enabled": False}}
+    )
+
+    prompt = asyncio.run(binding.handle_unbind(CONTEXT))
+    assert "sv3" not in prompt.text
+    assert [s.server_id for s in command_handler._pending_actions[STREAM].servers] == [
+        "sv1",
+        "sv2",
+    ]
+
+
+def test_single_available_server_binds_without_prompt():
+    """过滤后只剩一台可用服务器 → 直接执行，不该因为会话里还有别的服务器就选号。"""
+    command_handler, binding, servers = _make_multi_server_env(
+        server_count=3,
+        config_overrides={
+            "sv2": {"bind_enabled": False},
+            "sv3": {"bind_enabled": False},
+        },
+    )
+
+    result = asyncio.run(binding.handle_bind(CONTEXT, "Steve"))
+    assert result.text.startswith("✅ 绑定成功")
+    assert command_handler.has_pending_action(STREAM) is False
+    assert servers[0].rest_client.bind_player.await_count == 1
+    assert servers[1].rest_client.bind_player.await_count == 0
+    assert servers[2].rest_client.bind_player.await_count == 0
+
+
+def test_bind_prompt_excludes_offline_servers():
+    """离线服务器不得出现在编号提示里，也不能被选中执行（在线性也是门禁维度）。"""
+    command_handler, binding, servers = _make_multi_server_env(server_count=3)
+    servers[2].connected = False  # sv3 绑定门禁开着，但没连上
+
+    prompt = asyncio.run(binding.handle_bind(CONTEXT, "Steve"))
+    assert "编号选择" in prompt.text
+    assert "sv3" not in prompt.text
+    assert "过滤掉 1 个不可用服务器" in prompt.text
+
+    assert [s.server_id for s in command_handler._pending_actions[STREAM].servers] == [
+        "sv1",
+        "sv2",
+    ]
+
+    result = asyncio.run(command_handler.handle_number_selection(CONTEXT, "3"))
+    assert "编号无效" in result.text
+    assert all(s.rest_client.bind_player.await_count == 0 for s in servers)
+
+
+def test_offline_only_available_server_reports_not_connected():
+    """只剩一台「门禁都过但离线」的服务器 → 必须是「未连接」，不能是「不支持绑定」。"""
+    command_handler, binding, servers = _make_multi_server_env(
+        server_count=3,
+        config_overrides={
+            "sv2": {"bind_enabled": False},
+            "sv3": {"bind_enabled": False},
+        },
+    )
+    servers[0].connected = False
+
+    result = asyncio.run(binding.handle_bind(CONTEXT, "Steve"))
+    assert result.text == BIND_MSG_NOT_CONNECTED
+    assert "不支持绑定" not in result.text
+    assert command_handler.has_pending_action(STREAM) is False
+    assert all(s.rest_client.bind_player.await_count == 0 for s in servers)
+
+
+def test_offline_only_available_server_unbind_reports_not_connected():
+    """解绑/查询走同一套门禁：离线时同样给「未连接」而不是「未启用解绑」。"""
+    command_handler, binding, servers = _make_multi_server_env(
+        server_count=2, config_overrides={"sv2": {"bind_enabled": False}}
+    )
+    servers[0].connected = False
+
+    for result in (
+        asyncio.run(binding.handle_unbind(CONTEXT)),
+        asyncio.run(binding.handle_mybind(CONTEXT)),
+    ):
+        assert result.text == BIND_MSG_NOT_CONNECTED
+    assert all(s.rest_client.unbind_player.await_count == 0 for s in servers)
+    assert all(s.rest_client.lookup_binding.await_count == 0 for s in servers)
+
+
+def test_geyserunbind_selection_keeps_kind():
+    command_handler, binding, servers = _make_multi_server_env()
+
+    prompt = asyncio.run(binding.handle_geyserunbind(CONTEXT))
+    assert "编号选择" in prompt.text
+
+    asyncio.run(command_handler.handle_number_selection(CONTEXT, "2"))
+    assert servers[1].rest_client.unbind_player.await_args.kwargs["kind"] == "geyser"
+
+
+def test_mybind_selection_calls_lookup_binding():
+    command_handler, binding, servers = _make_multi_server_env()
+
+    prompt = asyncio.run(binding.handle_mybind(CONTEXT))
+    assert "编号选择" in prompt.text
+
+    result = asyncio.run(command_handler.handle_number_selection(CONTEXT, "2"))
+    assert "你的绑定" in result.text
+    assert servers[1].rest_client.lookup_binding.await_count == 1
+    assert servers[0].rest_client.lookup_binding.await_count == 0
+
+
+def test_selection_rejects_invalid_name_without_calling_server():
+    """选号只解决「在哪台服执行」，本地名称校验仍必须挡住非法 ID。"""
+    command_handler, binding, servers = _make_multi_server_env()
+
+    asyncio.run(binding.handle_bind(CONTEXT, "bad name"))
+    result = asyncio.run(command_handler.handle_number_selection(CONTEXT, "1"))
+    assert result.text == BIND_MSG_INVALID_NAME
+    assert servers[0].rest_client.bind_player.await_count == 0
+
+
+def test_selection_invalid_index_lists_choices():
+    command_handler, binding, servers = _make_multi_server_env()
+    asyncio.run(binding.handle_bind(CONTEXT, "Steve"))
+    pending = command_handler._pending_actions[STREAM]
+
+    result = asyncio.run(binding.handle_selection(pending, 9, CONTEXT))
     assert "编号无效" in result.text
     assert "sv1" in result.text
+    assert "sv2" in result.text
 
 
 def test_command_handler_routes_bind_pending_and_keeps_it_on_bad_index():
-    server = _make_server()
-    server_manager = MagicMock()
-    server_manager.get_all_servers.return_value = {"sv1": server}
-    config = ServerConfig(server_id="sv1", target_sessions=[STREAM])
-    command_handler = CommandHandler(
-        server_manager=server_manager,
-        renderer=MagicMock(),
-        get_server_config=lambda sid: config if sid == "sv1" else None,
-    )
-    binding, _ = _make_handler(config, server)
-    command_handler.pending_dispatcher = binding.handle_selection
-    command_handler._pending_actions[STREAM] = PendingAction(
-        action="bind:java",
-        args={"game_name": "Steve"},
-        servers=[server],
-        timestamp=time.time(),
-    )
+    command_handler, binding, servers = _make_multi_server_env()
+    asyncio.run(binding.handle_bind(CONTEXT, "Steve"))
 
     bad = asyncio.run(command_handler.handle_number_selection(CONTEXT, "7"))
     assert "编号无效" in bad.text
@@ -564,6 +828,7 @@ def test_command_handler_routes_bind_pending_and_keeps_it_on_bad_index():
     good = asyncio.run(command_handler.handle_number_selection(CONTEXT, "1"))
     assert good.text.startswith("✅ 绑定成功")
     assert command_handler.has_pending_action(STREAM) is False
+    assert servers[0].rest_client.bind_player.await_args.kwargs["game_name"] == "Steve"
 
 
 # ── 帮助文本降级 ───────────────────────────────────────
@@ -620,6 +885,7 @@ def test_help_geyser_line_hidden_when_disabled():
 class _FakeWS:
     def __init__(self, payload):
         self._payload = payload
+        self.closed = False
 
     async def receive(self):
         import aiohttp
@@ -628,6 +894,9 @@ class _FakeWS:
         msg.type = aiohttp.WSMsgType.TEXT
         msg.json.return_value = self._payload
         return msg
+
+    async def close(self):
+        self.closed = True
 
 
 def test_connection_ack_reads_payload_for_server_info():
