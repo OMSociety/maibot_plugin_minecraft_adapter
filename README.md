@@ -18,7 +18,7 @@
 
 > 本项目由 AstrBot 插件 [railgun19457/astrbot_plugin_minecraft_adapter](https://github.com/railgun19457/astrbot_plugin_minecraft_adapter) 迁移而来，改为 MaiBot 插件。
 >
-> **孪生项目（MC 服务端模组）：**[AstrBotAdapter_NeoForge](https://github.com/OMSociety/AstrBotAdapter_NeoForge)（NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
+> **孪生项目（MC 服务端模组）**：[AstrBotAdapter_NeoForge](https://github.com/OMSociety/AstrBotAdapter_NeoForge)（NeoForge 26.2，推荐）· [AstrBotAdapter_Forge](https://github.com/OMSociety/AstrBotAdapter_Forge)（旧版，仅 Forge 1.20.1）
 
 ---
 
