@@ -494,9 +494,7 @@ def test_no_session_server():
 # 手工塞 args 会掩盖「待选动作没带 game_name / 真实 action」这类链路缺陷。
 
 
-def _make_multi_server_env(
-    server_count: int = 2, config_overrides: dict | None = None
-):
+def _make_multi_server_env(server_count: int = 2, config_overrides: dict | None = None):
     """构造「一个会话关联多台服务器」的真实链路环境。
 
     ``config_overrides``: {"sv3": {"bind_enabled": False}} —— 给个别服务器改门禁开关。

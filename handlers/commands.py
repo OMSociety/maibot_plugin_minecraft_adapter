@@ -382,9 +382,7 @@ class CommandHandler:
 
         return None
 
-    async def _resolve_sender_mc_name(
-        self, ctx: CommandContext, server_id: str
-    ) -> str:
+    async def _resolve_sender_mc_name(self, ctx: CommandContext, server_id: str) -> str:
         """取发送者在指定服务器上的绑定游戏 ID（自定义指令模板的 {sender}）。
 
         未绑定、查询失败或服务器不可用时返回空串。结果按

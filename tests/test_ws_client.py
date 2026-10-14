@@ -79,9 +79,7 @@ class _WSServer:
 
 
 def _client(port: int) -> WebSocketClient:
-    return WebSocketClient(
-        server_id="sv1", host="127.0.0.1", port=port, token=TOKEN
-    )
+    return WebSocketClient(server_id="sv1", host="127.0.0.1", port=port, token=TOKEN)
 
 
 @pytest.mark.parametrize("mode", MODES)
