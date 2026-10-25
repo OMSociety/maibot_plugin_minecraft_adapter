@@ -1,4 +1,6 @@
-"""services/renderer.py 纯逻辑（文本格式化/工具函数）测试。"""
+"""services/renderer.py 纯逻辑（文本格式化/工具函数、头像缓存路径）测试。"""
+
+import asyncio
 
 from maibot_plugin_minecraft_adapter.core.models import (
     PlayerDetail,
@@ -88,3 +90,52 @@ def test_format_multi_player_list_text():
     text = r._format_multi_player_list_text(cards)
     assert "Steve" in text
     assert "1人" in text
+
+
+# ── 头像缓存路径（键来自服务端下发的玩家名）────────────────
+
+
+def test_avatar_cache_path_confines_slash_name_to_cache_dir(tmp_path):
+    r = InfoRenderer(cache_dir=tmp_path)
+    path = r._avatar_cache_path("../../evil", "", 50)
+    assert path == tmp_path / "avatars" / "evil_50.png"
+
+
+def test_avatar_cache_path_confines_backslash_name_to_cache_dir(tmp_path):
+    r = InfoRenderer(cache_dir=tmp_path)
+    path = r._avatar_cache_path(r"..\..\..\Windows\Temp\payload", "", 50)
+    assert path is not None
+    assert path.parent == tmp_path / "avatars"
+    assert "\\" not in path.name
+    assert "/" not in path.name
+
+
+def test_avatar_cache_path_uses_uuid_when_name_is_unusable(tmp_path):
+    r = InfoRenderer(cache_dir=tmp_path)
+    path = r._avatar_cache_path("", "069a79f4-44e9-4726-a5be-fca90e38aaf5", 8)
+    assert path == tmp_path / "avatars" / "069a79f444e94726a5befca90e38aaf5_8.png"
+
+
+def test_avatar_cache_path_rejects_escaped_key(tmp_path, monkeypatch):
+    """纵深防御：键过滤若被绕过（例如将来换键来源），realpath 校验仍拒绝落盘。"""
+    r = InfoRenderer(cache_dir=tmp_path)
+    monkeypatch.setattr(
+        InfoRenderer, "_avatar_key", staticmethod(lambda name, uuid_: "../escape")
+    )
+    assert r._avatar_cache_path("Notch", "", 50) is None
+
+
+def test_get_avatar_with_hostile_name_writes_only_inside_cache_dir(
+    tmp_path, monkeypatch
+):
+    r = InfoRenderer(cache_dir=tmp_path)
+    (tmp_path / "avatars").mkdir(parents=True)
+
+    async def _no_face(player_name, player_uuid):
+        return None
+
+    monkeypatch.setattr(r, "_fetch_avatar_face", _no_face)
+    avatar = asyncio.run(r._get_avatar("../../evil", "", 50))
+    assert avatar.size == (50, 50)
+    assert [p.name for p in (tmp_path / "avatars").iterdir()] == ["evil_50.png"]
+    assert not (tmp_path / "evil_50.png").exists()

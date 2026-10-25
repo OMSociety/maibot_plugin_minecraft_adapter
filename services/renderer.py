@@ -5,6 +5,7 @@ import base64
 import contextlib
 import json
 import logging
+import re
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -19,6 +20,11 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+# 头像缓存文件名允许的字符。玩家名由服务端下发、插件侧不作格式约束，而缓存键会
+# 拼进文件路径：`..` 加路径分隔符能把 PNG 落盘到缓存目录之外，因此统一收敛。
+_AVATAR_KEY_UNSAFE = re.compile(r"[^A-Za-z0-9_.-]")
+_AVATAR_KEY_MAX = 64
 
 
 @dataclass
@@ -393,16 +399,46 @@ class InfoRenderer:
             )
             return None
 
+    @staticmethod
+    def _avatar_key(player_name: str, player_uuid: str) -> str:
+        """把玩家名/uuid 收敛成安全的缓存文件名片段（非法字符替换为下划线）。
+
+        玩家名优先；名字为空时用去掉连字符的 uuid；都为空时用 ``unknown``。
+        """
+        raw = (
+            InfoRenderer._norm(player_name).lower()
+            or InfoRenderer._norm(player_uuid).replace("-", "").lower()
+            or "unknown"
+        )
+        key = _AVATAR_KEY_UNSAFE.sub("_", raw)[:_AVATAR_KEY_MAX].strip("._-")
+        return key or "unknown"
+
+    def _avatar_cache_path(
+        self, player_name: str, player_uuid: str, size: int
+    ) -> Path | None:
+        """头像缓存文件路径；键落在缓存目录之外时返回 None（不读也不写缓存）。
+
+        字符白名单已经滤掉路径分隔符，这里的 realpath 校验是纵深防御：将来换键
+        来源（配置项、更长的名字等）时不会再退化成目录逃逸。
+        """
+        key = self._avatar_key(player_name, player_uuid)
+        path = self._avatar_dir / f"{key}_{size}.png"
+        try:
+            if path.resolve().parent != self._avatar_dir.resolve():
+                logger.warning(
+                    f"[Renderer] 玩家名无法用作缓存键，跳过头像缓存: {key!r}"
+                )
+                return None
+        except OSError as exc:
+            logger.debug(f"[Renderer] 头像缓存路径校验失败: {key!r} -> {exc}")
+            return None
+        return path
+
     async def _get_avatar(
         self, player_name: str, player_uuid: str, size: int
     ) -> Image.Image:
-        key = (
-            self._norm(player_name).lower()
-            or self._norm(player_uuid).replace("-", "").lower()
-            or "unknown"
-        )
-        path = self._avatar_dir / f"{key}_{size}.png"
-        if path.exists():
+        path = self._avatar_cache_path(player_name, player_uuid, size)
+        if path is not None and path.exists():
             try:
                 return Image.open(path).convert("RGBA")
             except Exception:
@@ -413,8 +449,9 @@ class InfoRenderer:
         if face is None:
             face = self._placeholder_avatar_face()
         avatar = face.resize((size, size), Image.Resampling.NEAREST)
-        with contextlib.suppress(Exception):
-            avatar.save(path, format="PNG")
+        if path is not None:
+            with contextlib.suppress(Exception):
+                avatar.save(path, format="PNG")
         return avatar
 
     def _new_card(self, estimate_h: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:

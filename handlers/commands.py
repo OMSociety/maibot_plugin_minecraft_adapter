@@ -187,6 +187,10 @@ class PendingAction:
         default_factory=list
     )  # unified cmd target choices (proxy + backends)
     timestamp: float = 0.0
+    # 待选动作的发起者 (platform, user_id)。带 cmd_targets 的待选动作被消费时会
+    # 真正执行远程指令，而消费路径走的是入站消息钩子、不经过宿主的
+    # `permission="operator"` 过滤，所以只认发起者本人（见 handle_number_selection）。
+    initiator: tuple[str, str] | None = None
 
 
 # Pending actions expire after 60 seconds
@@ -282,13 +286,25 @@ class CommandHandler:
             server = target.server
             target_server = target.target_server
 
-            # Auth check only for user-initiated cmd
-            if action == "cmd":
-                allowed, deny_message = self._is_cmd_allowed_on_server(
-                    args["command"], server
-                )
-                if not allowed:
-                    return RenderResult(deny_message, is_image=False)
+            # 这条编号回复会真正执行远程指令，而它走的是入站消息钩子，不经过宿主
+            # @Command(permission="operator") 过滤（待选动作按会话存档，会话内任何人都
+            # 能回数字）。因此在这里复核回复者：必须是发起者本人（initiator 为空同样
+            # 拒绝，fail-closed），且仍命中宿主操作员列表。
+            if pending.initiator != (ctx.platform, ctx.user_id):
+                self._pending_actions[ctx.stream_id] = pending
+                return RenderResult(CMD_SELECTOR_MISMATCH, is_image=False)
+            if self._is_operator is None or not await self._is_operator(
+                ctx.platform, ctx.user_id
+            ):
+                self._pending_actions[ctx.stream_id] = pending
+                return RenderResult(CMD_SELECTOR_NOT_OPERATOR, is_image=False)
+
+            # 命令开关与黑白名单在执行前重查：待选动作有 60 秒窗口，期间配置可能已变
+            allowed, deny_message = self._is_cmd_allowed_on_server(
+                args["command"], server
+            )
+            if not allowed:
+                return RenderResult(deny_message, is_image=False)
             return await self._do_cmd(
                 ctx, server, args["command"], target_server=target_server
             )
@@ -812,6 +828,7 @@ class CommandHandler:
             args={"command": command},
             cmd_targets=targets,
             timestamp=time.time(),
+            initiator=(ctx.platform, ctx.user_id),
         )
         return RenderResult(f"⚠️ 请选择执行目标:\n{choices}", is_image=False)
 
@@ -1118,6 +1135,12 @@ class CommandHandler:
 
         return cmd_name in cmd_list
 
+
+# 编号选择相关文案（多目标待选动作的消费门禁，与 README 口径一致）
+CMD_SELECTOR_MISMATCH = "❌ 编号选择仅发起者本人可回复"
+CMD_SELECTOR_NOT_OPERATOR = (
+    "❌ 远程指令仅操作员可触发，请先在 [plugin].permission 配置操作员"
+)
 
 # 群友绑定相关文案（与插件 README / 用户手册口径一致）
 BIND_MSG_DISABLED = "❌ 本服务器未启用群友绑定功能"
