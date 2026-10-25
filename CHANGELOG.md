@@ -10,6 +10,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 2026-10-25
+
+### 修复
+
+- **编号选择现在只接受发起者的回复**：多服务器（含代理后端）会话里，`/mc cmd` 与自定义指令会先给出目标列表，真正执行发生在回复编号时，而这条路径由入站消息钩子处理、不经过宿主 `@Command(permission="operator")` 过滤（待选动作按会话存档，会话内任何成员都能回数字）。此前只校验命令开关与白名单，不比对回复者，会话内其他人可以代回编号替你选定执行目标。现在回复者必须是发起者本人、且仍命中 `[plugin].permission` 操作员名单，两者任一不符则不执行、原待选动作保留，发起者可在 60 秒内重新回复有效编号（覆盖 `/mc cmd` 与 `custom_cmd_list` 映射出的自定义指令两条链路）。
+- **头像缓存键消毒**：缓存文件名此前由服务端下发的玩家名直接拼成，玩家名含 `../` 或反斜杠时会把 PNG 写到缓存目录之外。现在键只保留字母、数字、下划线、点号与连字符（其余替换为下划线，上限 64 字符；名字为空时退回 uuid），并在读写前校验解析后的路径仍在缓存目录内，否则跳过头像缓存。
+
+### Fixed
+
+- **Number selection now accepts only the initiator's reply**: in multi-server sessions (including proxy backends), `/mc cmd` and custom commands first return a target list, and execution happens when a number is sent back — a path handled by the incoming-message hook that bypasses the host's `@Command(permission="operator")` filter (pending actions are stored per session, so any member of that session can reply with a digit). Only the command switch and the whitelist were checked, never who replied, so another member could pick the execution target for you. The reply must now come from the initiator and still match the `[plugin].permission` operator list; if either fails nothing is executed and the pending action is kept, so the initiator can reply with a valid number within 60 seconds (this covers both `/mc cmd` and the custom commands mapped from `custom_cmd_list`).
+- **Avatar cache keys are sanitised**: the cache filename was built directly from the player name supplied by the server, so a name containing `../` or a backslash wrote the PNG outside the cache directory. Keys now keep only letters, digits, underscore, dot and hyphen (everything else becomes an underscore, 64 characters max; empty names fall back to the uuid), and the resolved path is verified to stay inside the cache directory before any read or write — otherwise the avatar cache is skipped.
+
+---
+
 ## [1.3.3] - 2026-10-25
 
 ### 变更
