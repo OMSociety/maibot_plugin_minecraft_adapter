@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/OMSociety/maibot_plugin_minecraft_adapter/main/logo.png" width="120" alt="Minecraft 聊天适配器 Logo" />
-
-# Minecraft 聊天适配器
+<h1><img src="https://raw.githubusercontent.com/OMSociety/maibot_plugin_minecraft_adapter/main/logo.png" width="192" alt="Minecraft 聊天适配器 Logo"><br>Minecraft 聊天适配器</h1>
 
 **连接 Minecraft 服务器与 MaiBot** —— 游戏内 AI 聊天 · 跨平台消息互通 · 服务器远程管理
 
